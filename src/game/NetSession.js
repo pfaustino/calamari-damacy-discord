@@ -1,31 +1,23 @@
-import Peer from 'peerjs';
+import { getMpWebSocketUrl } from '../lib/mpWsUrl.js';
 
-const PREFIX = 'calamari-mp-';
 const MAX_PLAYERS = 4;
 
-function randomCode(len = 5) {
-  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let out = '';
-  for (let i = 0; i < len; i++) {
-    out += alphabet[(Math.random() * alphabet.length) | 0];
-  }
-  return out;
-}
-
 /**
- * PeerJS room: host opens connections; guests connect by room code.
- * Messages are JSON { type, ... }.
+ * WebSocket room relay: host broadcasts; guests send to host.
+ * Messages are JSON { type, ... } (game protocol).
  */
 export class NetSession {
   constructor() {
-    this.peer = null;
+    /** @type {WebSocket | null} */
+    this.ws = null;
     this.roomCode = null;
     this.isHost = false;
-    /** @type {Map<string, import('peerjs').DataConnection>} */
-    this.conns = new Map();
     this.localId = null;
+    /** @type {string | null} */
+    this.hostId = null;
     this._handlers = new Map();
-    this._open = false;
+    /** @type {((data: object) => void) | null} */
+    this._pendingHandler = null;
   }
 
   on(type, fn) {
@@ -36,8 +28,105 @@ export class NetSession {
     this._handlers.get(type)?.(payload);
   }
 
-  _peerId(code) {
-    return `${PREFIX}${code}`;
+  _sendOp(op, extra = {}) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) return;
+    this.ws.send(JSON.stringify({ op, ...extra }));
+  }
+
+  _waitForOp(expectedOp, timeoutMs = 15_000) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(() => {
+        this._pendingHandler = null;
+        reject(new Error('WebSocket timeout'));
+      }, timeoutMs);
+
+      this._pendingHandler = (data) => {
+        if (data.op === 'error') {
+          clearTimeout(t);
+          this._pendingHandler = null;
+          reject(new Error(data.message || 'Connection failed'));
+          return;
+        }
+        if (data.op === expectedOp) {
+          clearTimeout(t);
+          this._pendingHandler = null;
+          resolve(data);
+        }
+      };
+    });
+  }
+
+  _onSocketMessage(ev) {
+    let data;
+    try {
+      data = JSON.parse(String(ev.data));
+    } catch {
+      return;
+    }
+
+    if (this._pendingHandler) {
+      this._pendingHandler(data);
+      if (this._pendingHandler) return;
+    }
+
+    if (data.op === 'msg' && data.payload?.type) {
+      this._emit('message', { from: data.from, msg: data.payload });
+      return;
+    }
+    if (data.op === 'peer') {
+      this._emit('peer', { peerId: data.peerId, joined: Boolean(data.joined) });
+      return;
+    }
+    if (data.op === 'error') {
+      this._emit('error', { message: data.message || 'Connection error' });
+    }
+  }
+
+  async _connect() {
+    const url = getMpWebSocketUrl();
+    const ws = new WebSocket(url);
+    this.ws = ws;
+
+    const welcome = new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('WebSocket timeout')), 15_000);
+      const onMsg = (ev) => {
+        let data;
+        try {
+          data = JSON.parse(String(ev.data));
+        } catch {
+          return;
+        }
+        if (data.op === 'welcome') {
+          clearTimeout(t);
+          ws.removeEventListener('message', onMsg);
+          resolve(data);
+        }
+      };
+      ws.addEventListener('message', onMsg);
+      ws.addEventListener('error', () => {
+        clearTimeout(t);
+        reject(new Error('Could not connect to multiplayer server'));
+      }, { once: true });
+    });
+
+    await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('WebSocket timeout')), 15_000);
+      ws.addEventListener('open', () => {
+        clearTimeout(t);
+        resolve();
+      }, { once: true });
+      ws.addEventListener('error', () => {
+        clearTimeout(t);
+        reject(new Error('Could not connect to multiplayer server'));
+      }, { once: true });
+    });
+
+    const data = await welcome;
+    this.localId = data.id;
+    ws.onmessage = (ev) => this._onSocketMessage(ev);
+    ws.onclose = () => {
+      this._emit('error', { message: 'Disconnected from multiplayer server' });
+    };
   }
 
   /**
@@ -46,27 +135,15 @@ export class NetSession {
   async host(profile) {
     await this.destroy();
     this.isHost = true;
-    this.roomCode = randomCode();
-    this.peer = new Peer(this._peerId(this.roomCode), { debug: 0 });
+    await this._connect();
 
-    await this._waitOpen();
-    this.localId = this.peer.id;
-    this._open = true;
+    const hostedPromise = this._waitForOp('hosted');
+    this._sendOp('host', { profile });
+    const hosted = await hostedPromise;
 
-    this.peer.on('connection', (conn) => {
-      conn.on('open', () => {
-        if (this.conns.size >= MAX_PLAYERS - 1) {
-          conn.send({ type: 'reject', reason: 'Room full' });
-          conn.close();
-          return;
-        }
-        this.conns.set(conn.peer, conn);
-        this._wireConn(conn);
-        this._emit('peer', { peerId: conn.peer, joined: true });
-      });
-    });
-
-    this.peer.on('error', (err) => this._emit('error', { message: String(err) }));
+    this.roomCode = hosted.roomCode;
+    this.localId = hosted.id;
+    this.hostId = this.localId;
     this._emit('ready', { roomCode: this.roomCode, localId: this.localId, profile });
     return { roomCode: this.roomCode, localId: this.localId };
   }
@@ -79,96 +156,52 @@ export class NetSession {
     await this.destroy();
     this.isHost = false;
     this.roomCode = code.trim().toUpperCase();
-    this.peer = new Peer({ debug: 0 });
+    await this._connect();
 
-    await this._waitOpen();
-    this.localId = this.peer.id;
-    this._open = true;
+    const joinedPromise = this._waitForOp('joined');
+    this._sendOp('join', { roomCode: this.roomCode, profile });
+    const joined = await joinedPromise;
 
-    const hostId = this._peerId(this.roomCode);
-    const conn = this.peer.connect(hostId, { reliable: true });
-    await new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('Could not reach host')), 12_000);
-      conn.on('open', () => {
-        clearTimeout(t);
-        resolve();
-      });
-      conn.on('error', (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-      this.peer.on('error', (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
+    this.localId = joined.id;
+    this.hostId = joined.hostId;
+    this._sendOp('send', {
+      to: this.hostId,
+      payload: { type: 'hello', profile, peerId: this.localId },
     });
-
-    this.conns.set(hostId, conn);
-    this._wireConn(conn);
-    conn.send({ type: 'hello', profile, peerId: this.localId });
     this._emit('ready', { roomCode: this.roomCode, localId: this.localId, profile });
     return { roomCode: this.roomCode, localId: this.localId };
   }
 
-  _waitOpen() {
-    return new Promise((resolve, reject) => {
-      const t = setTimeout(() => reject(new Error('PeerJS timeout')), 15_000);
-      this.peer.on('open', () => {
-        clearTimeout(t);
-        resolve();
-      });
-      this.peer.on('error', (e) => {
-        clearTimeout(t);
-        reject(e);
-      });
-    });
-  }
-
-  /** @param {import('peerjs').DataConnection} conn */
-  _wireConn(conn) {
-    conn.on('data', (raw) => {
-      const msg = typeof raw === 'object' && raw ? raw : null;
-      if (!msg?.type) return;
-      this._emit('message', { from: conn.peer, msg });
-    });
-    conn.on('close', () => {
-      this.conns.delete(conn.peer);
-      this._emit('peer', { peerId: conn.peer, joined: false });
-    });
-  }
-
   /** Send to one peer (host→guest or guest→host). */
   sendTo(peerId, msg) {
-    this.conns.get(peerId)?.send(msg);
+    this._sendOp('send', { to: peerId, payload: msg });
   }
 
   /** Host broadcasts to all guests; guest sends to host. */
   send(msg) {
-    for (const conn of this.conns.values()) {
-      if (conn.open) conn.send(msg);
+    if (this.isHost) {
+      this._sendOp('send', { to: 'all', payload: msg });
+      return;
+    }
+    if (this.hostId) {
+      this.sendTo(this.hostId, msg);
     }
   }
 
   async destroy() {
-    for (const conn of this.conns.values()) {
+    this._pendingHandler = null;
+    if (this.ws) {
       try {
-        conn.close();
+        this.ws.onclose = null;
+        this.ws.close();
       } catch {
         /* ignore */
       }
     }
-    this.conns.clear();
-    if (this.peer) {
-      try {
-        this.peer.destroy();
-      } catch {
-        /* ignore */
-      }
-    }
-    this.peer = null;
+    this.ws = null;
     this.roomCode = null;
     this.localId = null;
-    this._open = false;
+    this.hostId = null;
     this.isHost = false;
   }
 }

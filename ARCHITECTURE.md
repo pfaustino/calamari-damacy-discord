@@ -5,7 +5,7 @@
 `title` → `playing` ⇄ `paused` → `result` → (`present` → `cosmos` | retry `playing`) → …
 
 Multiplayer: `title` → `lobby` → `mp-playing` ⇄ `mp-paused` → `mp-result` (15s vote) → rematch / lobby pause / leave  
-Host simulates via PeerJS; guests send wish input and apply state snapshots.
+Host simulates via WebSocket relay; guests send wish input and apply state snapshots.
 
 Owned by `src/game/Game.js` (orchestrator only).
 
@@ -25,7 +25,7 @@ Lose path: Try Again (same stage).
 | `UI.js` | HUD / overlays |
 | `Progress.js` | localStorage clears & stars |
 | `AudioManager.js` | Playlist + SFX |
-| `NetSession.js` | PeerJS room host/join |
+| `NetSession.js` | WebSocket room host/join |
 | `Multiplayer.js` | Race + battle session |
 | `rng.js` | Seeded Mulberry32 |
 

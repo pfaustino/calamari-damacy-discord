@@ -340,7 +340,7 @@ export class Multiplayer {
       if (this.isHost && !this._resolving && Date.now() >= this._voteEndsAt) {
         this._resolveVotes();
       } else if (!this.isHost && !this._resolving && Date.now() >= this._voteEndsAt) {
-        // Nudge host — PeerJS still delivers while their tab is backgrounded
+        // Nudge host — relay still delivers while their tab is backgrounded
         if (!this._voteTimeoutSent) {
           this._voteTimeoutSent = true;
           this.net.send({ type: 'vote-timeout' });

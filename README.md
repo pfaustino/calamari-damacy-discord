@@ -19,7 +19,7 @@ A browser-based **Katamari Damacy**–inspired roller built for **Discord Activi
 - **Phone-friendly** — landscape play with **tilt** (marble-tray style) or a **thumb pad** on the bottom left. Pick your vibe in the pause menu.
 - **Six ocean stages** — tide pools to boardwalk carnivals, each with size goals, collect missions, and royal commentary.
 - **Global leaderboard** — chase the biggest clears worldwide (when configured).
-- **Multiplayer races** — host a room, bump rivals, steal sticky volume. *(PeerJS today; WebSocket lobby planned.)*
+- **Multiplayer races** — host a room, bump rivals, steal sticky volume. Uses a **WebSocket relay** (Discord-safe; replaces PeerJS).
 
 *Not affiliated with Bandai Namco or Katamari Damacy.*
 
@@ -105,6 +105,24 @@ Open http://localhost:5174
 
 For in-Discord dev, tunnel with [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) and set that URL in **URL Mappings**.
 
+### Multiplayer (WebSocket relay)
+
+`npm run dev:discord` starts the relay at `ws://localhost:3001/mp` (Vite proxies `/mp` automatically).
+
+**Production** needs a always-on WebSocket host (Vercel serverless cannot hold sockets). Deploy the `server/` folder to [Railway](https://railway.com) (see `railway.json`):
+
+1. New Railway project → deploy this repo
+2. Set `PORT` (Railway sets this automatically)
+3. Copy the public URL, e.g. `https://calamari-mp.up.railway.app`
+4. On **Vercel** (game build), set `VITE_MP_WS_URL=wss://calamari-mp.up.railway.app/mp`
+5. In **Discord Developer Portal** → URL Mappings, add:
+
+| Prefix | Target |
+|--------|--------|
+| `/.proxy/mp` | `calamari-mp.up.railway.app` (your Railway host, no `https://`) |
+
+Redeploy Vercel after setting `VITE_MP_WS_URL`. The client uses `/.proxy/mp` inside Discord Activities.
+
 ---
 
 ## Scripts
@@ -126,7 +144,7 @@ For in-Discord dev, tunnel with [cloudflared](https://developers.cloudflare.com/
 | 3D | Three.js |
 | Discord | `@discord/embedded-app-sdk` |
 | OAuth | Express (local) / Vercel serverless (prod) |
-| Multiplayer | PeerJS (WebSocket migration planned) |
+| Multiplayer | WebSocket relay (`server/mpRelay.js`) on Railway |
 
 ---
 
@@ -138,7 +156,7 @@ For in-Discord dev, tunnel with [cloudflared](https://developers.cloudflare.com/
 - [x] Mobile HUD pause button
 - [x] Global leaderboard via same-origin Discord proxy
 - [x] Mobile push tuning (`mobilePushScale` in `data/game.json`)
-- [ ] WebSocket multiplayer (replace PeerJS for Discord sandbox)
+- [x] WebSocket multiplayer (replaces PeerJS for Discord sandbox)
 - [ ] Discord instance-based lobby (drop room codes)
 - [ ] Self-hosted fonts (Google Fonts CSP in Discord)
 - [ ] App verification for large servers

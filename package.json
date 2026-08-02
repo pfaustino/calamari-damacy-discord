@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@discord/embedded-app-sdk": "^2.2.0",
-    "peerjs": "^1.5.5",
     "three": "^0.170.0"
   },
   "devDependencies": {

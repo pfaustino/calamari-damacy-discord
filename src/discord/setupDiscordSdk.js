@@ -1,5 +1,6 @@
 import { DiscordSDK, patchUrlMappings } from '@discord/embedded-app-sdk';
 import { isDiscordEmbedded } from './discordEnv.js';
+import { getMpRelayHost } from '../lib/mpWsUrl.js';
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID ?? '';
 
@@ -19,6 +20,13 @@ function patchLeaderboardUrlMappings() {
   patchUrlMappings([{ prefix: '/.proxy/leaderboards', target: host }]);
 }
 
+/** Remap multiplayer WebSocket through Discord's /.proxy/ tunnel. */
+function patchMultiplayerUrlMappings() {
+  const host = getMpRelayHost();
+  if (!host) return;
+  patchUrlMappings([{ prefix: '/.proxy/mp', target: host }]);
+}
+
 function tokenUrl() {
   return isDiscordEmbedded() ? '/.proxy/api/token' : '/api/token';
 }
@@ -35,6 +43,7 @@ export async function setupDiscordSdk() {
   const discordSdk = new DiscordSDK(CLIENT_ID);
   await discordSdk.ready();
   patchLeaderboardUrlMappings();
+  patchMultiplayerUrlMappings();
 
   const { code } = await discordSdk.commands.authorize({
     client_id: CLIENT_ID,

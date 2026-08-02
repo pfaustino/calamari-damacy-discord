@@ -1,7 +1,9 @@
 import express from 'express';
 import dotenv from 'dotenv';
+import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attachMpRelay } from './mpRelay.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
@@ -14,6 +16,10 @@ const app = express();
 const port = Number(process.env.PORT) || 3001;
 
 app.use(express.json());
+
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, mp: true });
+});
 
 app.post('/api/token', async (req, res) => {
   const clientId = process.env.VITE_DISCORD_CLIENT_ID;
@@ -79,6 +85,9 @@ app.post('/api/score', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`OAuth server listening at http://localhost:${port}`);
+const server = http.createServer(app);
+attachMpRelay(server, '/mp');
+
+server.listen(port, () => {
+  console.log(`Dev server listening at http://localhost:${port} (HTTP + WS /mp)`);
 });

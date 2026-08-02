@@ -18,6 +18,11 @@ export default defineConfig(({ command }) => ({
         changeOrigin: true,
         secure: false,
       },
+      '/mp': {
+        target: 'http://localhost:3001',
+        ws: true,
+        changeOrigin: true,
+      },
     },
     hmr: {
       clientPort: 443,
