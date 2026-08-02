@@ -1,4 +1,7 @@
+import { patchUrlMappings } from '@discord/embedded-app-sdk';
 import { isDiscordEmbedded } from '../discord/discordEnv.js';
+
+let mpMappingsPatched = false;
 
 /**
  * WebSocket URL for multiplayer relay.
@@ -29,5 +32,18 @@ export function getMpRelayHost() {
     return new URL(configured).host;
   } catch {
     return null;
+  }
+}
+
+/** Patch Discord proxy for multiplayer — only when opening a WS connection. */
+export function ensureMpUrlMappings() {
+  if (!isDiscordEmbedded() || mpMappingsPatched) return;
+  const host = getMpRelayHost();
+  if (!host) return;
+  try {
+    patchUrlMappings([{ prefix: '/.proxy/mp', target: host }]);
+    mpMappingsPatched = true;
+  } catch (err) {
+    console.warn('Multiplayer URL mapping failed:', err);
   }
 }

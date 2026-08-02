@@ -73,6 +73,24 @@ export class Game {
     this._pendingStageId = null;
   }
 
+  /**
+   * Late-bind Discord auth after the game has already started (non-blocking boot).
+   * @param {{ sdk: import('@discord/embedded-app-sdk').DiscordSDK, auth: import('@discord/embedded-app-sdk').Auth }} discord
+   */
+  applyDiscord(discord) {
+    this.discord = discord;
+    const discordName = discordDisplayName(discord);
+    if (!discordName) return;
+    if (!this.progress.leaderboardName) {
+      const next = setLeaderboardName(this.progress, discordName);
+      if (next) this.progress = next;
+    }
+    const mpName = /** @type {HTMLInputElement | null} */ (document.getElementById('mp-name'));
+    if (mpName && !mpName.value.trim()) {
+      mpName.value = discordName.slice(0, 16);
+    }
+  }
+
   init() {
     this.tuning = gameData.tuning;
     this.stages = stagesData.stages;
@@ -117,7 +135,16 @@ export class Game {
 
   setupRenderer() {
     const canvas = document.getElementById('game-canvas');
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    const base = {
+      canvas,
+      failIfMajorPerformanceCaveat: false,
+      powerPreference: 'default',
+    };
+    try {
+      this.renderer = new THREE.WebGLRenderer({ ...base, antialias: true });
+    } catch {
+      this.renderer = new THREE.WebGLRenderer({ ...base, antialias: false });
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;

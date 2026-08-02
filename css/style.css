@@ -44,6 +44,26 @@ body {
   display: none !important;
 }
 
+.boot-splash,
+.boot-error {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sea-deep);
+  color: var(--cream);
+  font-family: 'Nunito', system-ui, sans-serif;
+  font-size: 1.1rem;
+  text-align: center;
+  padding: 1.5rem;
+}
+
+.boot-error {
+  color: #ffb4b4;
+}
+
 /* —— HUD —— */
 #hud {
   position: absolute;

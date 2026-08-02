@@ -1,4 +1,4 @@
-import { getMpWebSocketUrl } from '../lib/mpWsUrl.js';
+import { ensureMpUrlMappings, getMpWebSocketUrl } from '../lib/mpWsUrl.js';
 
 const MAX_PLAYERS = 4;
 
@@ -83,6 +83,7 @@ export class NetSession {
   }
 
   async _connect() {
+    ensureMpUrlMappings();
     const url = getMpWebSocketUrl();
     const ws = new WebSocket(url);
     this.ws = ws;
