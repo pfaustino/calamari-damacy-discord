@@ -67,6 +67,8 @@ export class Game {
     this.mp = null;
     /** @type {import('./Katamari.js').Katamari[]} */
     this.mpBalls = [];
+    /** @type {string | null} */
+    this._pendingStageId = null;
   }
 
   init() {
@@ -153,7 +155,7 @@ export class Game {
       const next = this.stages.find((s) => isStageUnlocked(this.stages, this.progress, s.id)
         && !this.progress.completed.includes(s.id))
         ?? this.stages[0];
-      this.startStage(next.id);
+      this.beginStage(next.id);
     });
     document.getElementById('btn-title-cosmos').addEventListener('click', () => {
       this.audio.unlockAndPlay();
@@ -225,12 +227,45 @@ export class Game {
       if (this._lastResult?.won) this.presentToKing();
       else {
         this.audio.unlockAndPlay();
-        this.startStage(this.stage.id);
+        this.beginStage(this.stage.id);
       }
     });
     document.getElementById('btn-title').addEventListener('click', () => this.toTitle());
     document.getElementById('btn-view-cosmos').addEventListener('click', () => this.showCosmos());
     document.getElementById('btn-cosmos-title').addEventListener('click', () => this.toTitle());
+
+    document.getElementById('btn-tilt-enable').addEventListener('click', async () => {
+      const ok = await this.input.enableTilt();
+      this.ui.hideTiltPrompt();
+      if (ok && this._pendingStageId) {
+        this.startStage(this._pendingStageId);
+        this._pendingStageId = null;
+      }
+    });
+    document.getElementById('btn-tilt-cancel').addEventListener('click', () => {
+      this._pendingStageId = null;
+      this.ui.hideTiltPrompt();
+    });
+  }
+
+  /**
+   * Gate stage start on mobile tilt permission when required (iOS).
+   * @param {string} stageId
+   */
+  async beginStage(stageId) {
+    if (Input.prefersTilt() && Input.canUseTilt()) {
+      if (!this.input.isTiltActive()) {
+        if (Input.needsMotionPermission()) {
+          this._pendingStageId = stageId;
+          this.ui.showTiltPrompt();
+          return;
+        }
+        await this.input.enableTilt();
+      } else {
+        this.input.calibrateTilt();
+      }
+    }
+    this.startStage(stageId);
   }
 
   startStage(stageId = this.stage?.id) {
@@ -251,6 +286,7 @@ export class Game {
     this.camera.position.set(0, 8, 12);
     this.state = 'playing';
     this.ui.showPlaying(this.stage);
+    this.ui.setControlHint(Input.getControlHint());
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
@@ -346,6 +382,10 @@ export class Game {
     this.camera.position.set(0, 8, 12);
     this.state = 'mp-playing';
     this.ui.showPlaying(this.stage, { multiplayer: true });
+    this.ui.setControlHint(Input.getControlHint());
+    if (Input.prefersTilt() && this.input.isTiltActive()) {
+      this.input.calibrateTilt();
+    }
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
@@ -400,7 +440,7 @@ export class Game {
       (id) => isStageUnlocked(this.stages, this.progress, id),
       (id) => {
         this.audio.unlockAndPlay();
-        this.startStage(id);
+        this.beginStage(id);
       },
     );
     this.audio.duck(0.45);
@@ -435,6 +475,9 @@ export class Game {
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
+    if (Input.prefersTilt() && this.input.isTiltActive()) {
+      this.input.calibrateTilt();
+    }
   }
 
   endStage(forceWin = false) {

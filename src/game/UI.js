@@ -44,6 +44,7 @@ export class UI {
     this.mpScreen = document.getElementById('mp-screen');
     this.mpResult = document.getElementById('mp-result-screen');
     this.leaderboard = document.getElementById('leaderboard-screen');
+    this.tiltPrompt = document.getElementById('tilt-prompt');
     this.pausePanel = 'main';
     this._eventTimer = 0;
     this._lbTab = 'local';
@@ -58,7 +59,22 @@ export class UI {
     this.mpScreen?.classList.add('hidden');
     this.mpResult?.classList.add('hidden');
     this.leaderboard?.classList.add('hidden');
+    this.tiltPrompt?.classList.add('hidden');
     this.hud.classList.add('hidden');
+  }
+
+  showTiltPrompt() {
+    this.tiltPrompt?.classList.remove('hidden');
+  }
+
+  hideTiltPrompt() {
+    this.tiltPrompt?.classList.add('hidden');
+  }
+
+  /** @param {string} text */
+  setControlHint(text) {
+    const hint = document.querySelector('.hud-hint');
+    if (hint) hint.textContent = text;
   }
 
   showTitle() {

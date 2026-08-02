@@ -6,10 +6,11 @@ const _ndc = new THREE.Vector2();
 const _hit = new THREE.Vector3();
 /** Ignore micro-jitter when the ground aim is on top of the ball. */
 const MIN_STEER_DIST_SQ = 0.25;
+const TILT_DEADZONE_DEG = 4;
+const TILT_MAX_DEG = 22;
 
 /**
- * Keyboard + pointer input for rolling the calamari.
- * LMB hold / touch drag steers toward the cursor or finger on the ground plane.
+ * Keyboard + mouse (desktop) or device tilt (mobile) for rolling the calamari.
  */
 export class Input {
   constructor() {
@@ -19,8 +20,19 @@ export class Input {
     this._pointerClientY = 0;
     /** @type {HTMLCanvasElement | null} */
     this._canvas = null;
-    /** @type {number | null} */
-    this._touchId = null;
+
+    this._tiltActive = false;
+    this._orientationBound = false;
+    this._gamma = 0;
+    this._beta = 0;
+    this._neutralGamma = 0;
+    this._neutralBeta = 0;
+
+    this._onOrientation = (e) => {
+      if (e.gamma == null || e.beta == null) return;
+      this._gamma = e.gamma;
+      this._beta = e.beta;
+    };
 
     this._onDown = (e) => {
       this.keys.add(e.code);
@@ -34,6 +46,7 @@ export class Input {
       this.clearPointer();
     };
     this._onPointerDown = (e) => {
+      if (Input.prefersTilt()) return;
       if (e.button !== 0) return;
       e.preventDefault();
       this._pointerActive = true;
@@ -47,28 +60,29 @@ export class Input {
       if (!this._pointerActive) return;
       this._setPointerClient(e.clientX, e.clientY);
     };
-    this._onTouchStart = (e) => {
-      if (this._touchId != null) return;
-      const t = e.changedTouches[0];
-      if (!t) return;
-      e.preventDefault();
-      this._touchId = t.identifier;
-      this._pointerActive = true;
-      this._setPointerClient(t.clientX, t.clientY);
-    };
-    this._onTouchMove = (e) => {
-      if (this._touchId == null) return;
-      const t = Array.from(e.changedTouches).find((touch) => touch.identifier === this._touchId)
-        ?? Array.from(e.touches).find((touch) => touch.identifier === this._touchId);
-      if (!t) return;
-      e.preventDefault();
-      this._setPointerClient(t.clientX, t.clientY);
-    };
-    this._onTouchEnd = (e) => {
-      const ended = Array.from(e.changedTouches).some((t) => t.identifier === this._touchId);
-      if (!ended) return;
-      this.clearPointer();
-    };
+  }
+
+  /** @returns {boolean} */
+  static prefersTilt() {
+    return window.matchMedia('(pointer: coarse)').matches;
+  }
+
+  /** iOS Safari requires a user gesture before device orientation events fire. */
+  static needsMotionPermission() {
+    return (
+      typeof DeviceOrientationEvent !== 'undefined'
+      && typeof DeviceOrientationEvent.requestPermission === 'function'
+    );
+  }
+
+  /** @returns {boolean} */
+  static canUseTilt() {
+    return typeof DeviceOrientationEvent !== 'undefined';
+  }
+
+  static getControlHint() {
+    if (Input.prefersTilt()) return 'Tilt your phone to roll the calamari';
+    return 'Click / hold to roll toward cursor · WASD · scroll zoom · Esc pause';
   }
 
   init() {
@@ -83,14 +97,11 @@ export class Input {
     this._canvas.addEventListener('mousedown', this._onPointerDown);
     window.addEventListener('mouseup', this._onPointerUp);
     this._canvas.addEventListener('mousemove', this._onPointerMove);
-    this._canvas.addEventListener('touchstart', this._onTouchStart, { passive: false });
-    this._canvas.addEventListener('touchmove', this._onTouchMove, { passive: false });
-    this._canvas.addEventListener('touchend', this._onTouchEnd);
-    this._canvas.addEventListener('touchcancel', this._onTouchEnd);
     this._canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
   dispose() {
+    this.disableTilt();
     window.removeEventListener('keydown', this._onDown);
     window.removeEventListener('keyup', this._onUp);
     window.removeEventListener('blur', this._onBlur);
@@ -99,17 +110,50 @@ export class Input {
     if (this._canvas) {
       this._canvas.removeEventListener('mousedown', this._onPointerDown);
       this._canvas.removeEventListener('mousemove', this._onPointerMove);
-      this._canvas.removeEventListener('touchstart', this._onTouchStart);
-      this._canvas.removeEventListener('touchmove', this._onTouchMove);
-      this._canvas.removeEventListener('touchend', this._onTouchEnd);
-      this._canvas.removeEventListener('touchcancel', this._onTouchEnd);
     }
     this._canvas = null;
   }
 
   clearPointer() {
     this._pointerActive = false;
-    this._touchId = null;
+  }
+
+  /** @returns {boolean} */
+  isTiltActive() {
+    return this._tiltActive;
+  }
+
+  /** @returns {Promise<boolean>} */
+  async enableTilt() {
+    if (!Input.canUseTilt()) return false;
+
+    if (Input.needsMotionPermission()) {
+      const result = await DeviceOrientationEvent.requestPermission();
+      if (result !== 'granted') return false;
+    }
+
+    if (!this._orientationBound) {
+      window.addEventListener('deviceorientation', this._onOrientation);
+      this._orientationBound = true;
+    }
+
+    this._tiltActive = true;
+    this.calibrateTilt();
+    return true;
+  }
+
+  disableTilt() {
+    if (this._orientationBound) {
+      window.removeEventListener('deviceorientation', this._onOrientation);
+      this._orientationBound = false;
+    }
+    this._tiltActive = false;
+  }
+
+  /** Treat the current phone angle as neutral (call when a stage starts). */
+  calibrateTilt() {
+    this._neutralGamma = this._gamma;
+    this._neutralBeta = this._beta;
   }
 
   /** @returns {{ x: number, z: number }} camera-relative wish dir in XZ */
@@ -128,8 +172,24 @@ export class Input {
     return { x, z };
   }
 
+  /** @returns {{ x: number, z: number }} camera-relative tilt wish */
+  getTiltMoveVector() {
+    if (!this._tiltActive) return { x: 0, z: 0 };
+
+    const dx = this._gamma - this._neutralGamma;
+    const dz = -(this._beta - this._neutralBeta);
+    let x = Math.abs(dx) > TILT_DEADZONE_DEG ? dx : 0;
+    let z = Math.abs(dz) > TILT_DEADZONE_DEG ? dz : 0;
+
+    const len = Math.hypot(x, z);
+    if (len < 0.001) return { x: 0, z: 0 };
+
+    const strength = Math.min(1, len / TILT_MAX_DEG);
+    return { x: (x / len) * strength, z: (z / len) * strength };
+  }
+
   /**
-   * World-space roll direction toward the active pointer on the ground plane.
+   * World-space roll direction toward the active mouse pointer on the ground plane.
    * @param {THREE.PerspectiveCamera} camera
    * @param {import('./Katamari.js').Katamari} ball
    * @returns {{ x: number, z: number } | null}
@@ -156,15 +216,24 @@ export class Input {
   }
 
   /**
-   * Pointer steering takes priority while LMB / touch is active; otherwise keyboard.
    * @param {THREE.PerspectiveCamera} camera
    * @param {import('./Katamari.js').Katamari} ball
    * @param {import('./FollowCamera.js').FollowCamera} followCam
    * @returns {{ x: number, z: number }}
    */
   resolveWorldWish(camera, ball, followCam) {
-    const pointer = this.getPointerWorldWish(camera, ball);
-    if (pointer) return pointer;
+    if (!Input.prefersTilt()) {
+      const pointer = this.getPointerWorldWish(camera, ball);
+      if (pointer) return pointer;
+    }
+
+    if (this._tiltActive) {
+      const tilt = this.getTiltMoveVector();
+      if (tilt.x !== 0 || tilt.z !== 0) {
+        return followCam.wishToWorld(tilt);
+      }
+    }
+
     return followCam.wishToWorld(this.getMoveVector());
   }
 
