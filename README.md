@@ -15,7 +15,7 @@ cp .env.example .env   # fill in Discord + leaderboard keys
 npm run dev:discord    # Vite + OAuth server
 ```
 
-Open http://localhost:5173 — click **Start Rolling**, then WASD / arrows to roll.
+Open http://localhost:5174 — click **Start Rolling**, then WASD / arrows to roll.
 
 For in-Discord testing, expose the dev server with [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) and set that URL in the Discord Developer Portal **URL Mappings**.
 

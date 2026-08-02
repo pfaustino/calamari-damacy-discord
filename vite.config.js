@@ -10,7 +10,7 @@ export default defineConfig(({ command }) => ({
     process.env.VITE_BASE_PATH ??
     (command === 'serve' ? '/' : pagesBase),
   server: {
-    port: 5173,
+    port: 5174,
     strictPort: true,
     proxy: {
       '/api': {

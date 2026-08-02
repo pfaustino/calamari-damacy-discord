@@ -419,6 +419,7 @@ export class Game {
 
   pause() {
     if (this.state !== 'playing' && this.state !== 'mp-playing') return;
+    this.input.clearPointer();
     this.state = this.state === 'mp-playing' ? 'mp-paused' : 'paused';
     this.ui.showPause();
     this.audio.duck(0.3);
@@ -533,8 +534,7 @@ export class Game {
     this._escWasDown = esc;
 
     if (this.state === 'playing' && this.ball) {
-      const wishLocal = this.input.getMoveVector();
-      const wish = this.followCam.wishToWorld(wishLocal);
+      const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
       this.ball.update(dt, wish);
       this.collectibles.update(dt, this.ball);
       this.followCam.update(dt, this.ball, wish);
@@ -555,8 +555,7 @@ export class Game {
     }
 
     if (this.state === 'mp-playing' && this.mp && this.ball) {
-      const wishLocal = this.input.getMoveVector();
-      const wish = this.followCam.wishToWorld(wishLocal);
+      const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
       this.mp.update(dt, wish);
       this.followCam.update(dt, this.ball, wish);
       const roster = this.mp.players.map((p) => ({
