@@ -42,6 +42,16 @@ Set environment variables in Vercel:
 
 Point Discord **URL Mapping** `/` at your Vercel URL (e.g. `https://calamari-damacy-discord.vercel.app`).
 
+Global leaderboard requests in the Activity iframe go through same-origin `/.proxy/api/leaderboard` (proxied by your Vercel deployment). No extra URL Mapping is required for the leaderboard host.
+
+Optional: if you bypass the same-origin proxy and fetch the leaderboard API directly, add a second **URL Mapping** in the Developer Portal:
+
+| Prefix | Target |
+|--------|--------|
+| `/leaderboards` | `https://leaderboards-opal.vercel.app` |
+
+The client also calls `patchUrlMappings` for that host as a fallback.
+
 ## Scripts
 
 | Command | Purpose |

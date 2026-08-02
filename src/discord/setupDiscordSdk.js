@@ -1,13 +1,22 @@
-import { DiscordSDK } from '@discord/embedded-app-sdk';
+import { DiscordSDK, patchUrlMappings } from '@discord/embedded-app-sdk';
+import { isDiscordEmbedded } from './discordEnv.js';
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID ?? '';
 
-/** @returns {boolean} */
-export function isDiscordEmbedded() {
-  return (
-    Boolean(CLIENT_ID) &&
-    /discordsays\.com$/i.test(window.location.hostname)
-  );
+export { isDiscordEmbedded };
+
+/** Remap direct leaderboard API fetches through Discord's /.proxy/ tunnel. */
+function patchLeaderboardUrlMappings() {
+  const apiBase = (
+    import.meta.env.VITE_LEADERBOARD_API || 'https://leaderboards-opal.vercel.app'
+  ).replace(/\/$/, '');
+  let host;
+  try {
+    host = new URL(apiBase).host;
+  } catch {
+    return;
+  }
+  patchUrlMappings([{ prefix: '/.proxy/leaderboards', target: host }]);
 }
 
 function tokenUrl() {
@@ -25,6 +34,7 @@ export async function setupDiscordSdk() {
 
   const discordSdk = new DiscordSDK(CLIENT_ID);
   await discordSdk.ready();
+  patchLeaderboardUrlMappings();
 
   const { code } = await discordSdk.commands.authorize({
     client_id: CLIENT_ID,

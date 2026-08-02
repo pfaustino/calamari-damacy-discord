@@ -1,5 +1,7 @@
 /** Shared Vercel leaderboards service (see github.com/pfaustino/leaderboards). */
 
+import { isDiscordEmbedded } from '../discord/discordEnv.js';
+
 export const LEADERBOARD_GAME_ID = 'calamari-damacy';
 
 /** Set at build time, or defaults to production API host. */
@@ -20,6 +22,14 @@ export function canFetchGlobalLeaderboard() {
   return Boolean(LEADERBOARD_API);
 }
 
+/** Same-origin proxy in Discord iframe; direct API elsewhere. */
+function leaderboardApiPath(path) {
+  if (isDiscordEmbedded()) {
+    return `/.proxy/api${path}`;
+  }
+  return `${LEADERBOARD_API}/api${path}`;
+}
+
 /**
  * @returns {Promise<{ ok: true, rows: Array<{ player: string, value: number, meta: object | null }> } | { ok: false, error: string }>}
  */
@@ -28,7 +38,7 @@ export async function fetchGlobalLeaderboard(limit = 50) {
     return { ok: false, error: 'Global leaderboard URL not configured' };
   }
   try {
-    const url = `${LEADERBOARD_API}/api/leaderboard?game=${LEADERBOARD_GAME_ID}&limit=${limit}`;
+    const url = `${leaderboardApiPath('/leaderboard')}?game=${LEADERBOARD_GAME_ID}&limit=${limit}`;
     const res = await fetch(url);
     if (!res.ok) {
       return { ok: false, error: `Server returned ${res.status}` };
@@ -46,7 +56,7 @@ export async function fetchGlobalLeaderboard(limit = 50) {
 export async function submitGlobalScore(payload) {
   if (!isGlobalLeaderboardConfigured()) return { ok: false, error: 'not configured' };
   try {
-    const res = await fetch(`${LEADERBOARD_API}/api/score`, {
+    const res = await fetch(leaderboardApiPath('/score'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

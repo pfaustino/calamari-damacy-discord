@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
+const LEADERBOARD_API = (
+  process.env.VITE_LEADERBOARD_API || 'https://leaderboards-opal.vercel.app'
+).replace(/\/$/, '');
+
 const app = express();
 const port = Number(process.env.PORT) || 3001;
 
@@ -38,6 +42,41 @@ app.post('/api/token', async (req, res) => {
   }
 
   res.json({ access_token: data.access_token });
+});
+
+app.get('/api/leaderboard', async (req, res) => {
+  const game = req.query.game ?? '';
+  const limit = req.query.limit ?? '50';
+  const url = `${LEADERBOARD_API}/api/leaderboard?game=${encodeURIComponent(game)}&limit=${encodeURIComponent(limit)}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    res.status(response.status).json(data);
+  } catch {
+    res.status(502).json({ error: 'Could not reach leaderboard server' });
+  }
+});
+
+app.post('/api/score', async (req, res) => {
+  const writeKey = process.env.VITE_LEADERBOARD_WRITE_KEY;
+  if (!writeKey) {
+    res.status(500).json({ error: 'Leaderboard write key not configured' });
+    return;
+  }
+  try {
+    const response = await fetch(`${LEADERBOARD_API}/api/score`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Game-Key': writeKey,
+      },
+      body: JSON.stringify(req.body ?? {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    res.status(response.status).json(data);
+  } catch {
+    res.status(502).json({ error: 'Could not reach leaderboard server' });
+  }
 });
 
 app.listen(port, () => {
