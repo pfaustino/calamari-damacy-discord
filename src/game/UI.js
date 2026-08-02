@@ -45,6 +45,7 @@ export class UI {
     this.mpResult = document.getElementById('mp-result-screen');
     this.leaderboard = document.getElementById('leaderboard-screen');
     this.tiltPrompt = document.getElementById('tilt-prompt');
+    this.rotatePrompt = document.getElementById('rotate-prompt');
     this.pausePanel = 'main';
     this._eventTimer = 0;
     this._lbTab = 'local';
@@ -60,6 +61,7 @@ export class UI {
     this.mpResult?.classList.add('hidden');
     this.leaderboard?.classList.add('hidden');
     this.tiltPrompt?.classList.add('hidden');
+    this.rotatePrompt?.classList.add('hidden');
     this.hud.classList.add('hidden');
   }
 
@@ -69,6 +71,14 @@ export class UI {
 
   hideTiltPrompt() {
     this.tiltPrompt?.classList.add('hidden');
+  }
+
+  showRotatePrompt() {
+    this.rotatePrompt?.classList.remove('hidden');
+  }
+
+  hideRotatePrompt() {
+    this.rotatePrompt?.classList.add('hidden');
   }
 
   /** @param {string} text */

@@ -88,6 +88,22 @@ export class Input {
     return window.matchMedia('(pointer: coarse)').matches;
   }
 
+  /** @returns {boolean} True when the viewport is taller than wide (portrait). */
+  static isPortrait() {
+    const orientType = screen.orientation?.type;
+    if (orientType === 'portrait-primary' || orientType === 'portrait-secondary') {
+      return true;
+    }
+    if (orientType === 'landscape-primary' || orientType === 'landscape-secondary') {
+      return false;
+    }
+    const raw = screen.orientation?.angle ?? window.orientation ?? 0;
+    const deg = ((Number(raw) % 360) + 360) % 360;
+    if (deg === 90 || deg === 270) return false;
+    if (deg === 0 || deg === 180) return true;
+    return window.innerHeight >= window.innerWidth;
+  }
+
   /** iOS requires a user gesture before motion/orientation events fire. */
   static needsMotionPermission() {
     if (typeof DeviceMotionEvent !== 'undefined'

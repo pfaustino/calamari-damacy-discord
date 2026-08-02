@@ -61,6 +61,7 @@ export class Game {
     this.timeLeft = 0;
     this.collectCount = 0;
     this._escWasDown = false;
+    this._orientationBlocked = false;
     this._raf = 0;
     this._worldBuilt = false;
     /** @type {Multiplayer | null} */
@@ -107,6 +108,9 @@ export class Game {
     });
 
     window.addEventListener('resize', () => this.onResize());
+    this._onOrientationChange = () => this.updateOrientationGate();
+    window.addEventListener('orientationchange', this._onOrientationChange);
+    screen.orientation?.addEventListener?.('change', this._onOrientationChange);
     this.animate();
   }
 
@@ -290,6 +294,7 @@ export class Game {
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
+    this.updateOrientationGate();
   }
 
   onCollected(type) {
@@ -306,6 +311,7 @@ export class Game {
   }
 
   toTitle() {
+    this._clearOrientationBlock(false);
     this.state = 'title';
     this.clearBalls();
     this.collectibles?.clear();
@@ -389,6 +395,7 @@ export class Game {
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
+    this.updateOrientationGate();
   }
 
   endMultiplayer(msg) {
@@ -459,6 +466,7 @@ export class Game {
 
   pause() {
     if (this.state !== 'playing' && this.state !== 'mp-playing') return;
+    this._clearOrientationBlock(false);
     this.input.clearPointer();
     this.state = this.state === 'mp-playing' ? 'mp-paused' : 'paused';
     this.ui.showPause();
@@ -473,6 +481,12 @@ export class Game {
     } else return;
     this.ui.hidePause();
     this.clock.getDelta();
+    if (Input.prefersTilt() && Input.isPortrait()) {
+      this._orientationBlocked = true;
+      this.ui.showRotatePrompt();
+      this.audio.duck(0.3);
+      return;
+    }
     this.audio.unduck();
     this.audio.play();
     if (Input.prefersTilt() && this.input.isTiltActive()) {
@@ -480,8 +494,49 @@ export class Game {
     }
   }
 
+  /** Pause gameplay on mobile portrait without changing Esc-pause state. */
+  updateOrientationGate() {
+    if (!Input.prefersTilt()) {
+      if (this._orientationBlocked) this._clearOrientationBlock();
+      return;
+    }
+    if (this.state !== 'playing' && this.state !== 'mp-playing') {
+      if (this._orientationBlocked) this._clearOrientationBlock();
+      return;
+    }
+    if (Input.isPortrait()) {
+      if (!this._orientationBlocked) {
+        this._orientationBlocked = true;
+        this.input.clearPointer();
+        this.ui.showRotatePrompt();
+        this.audio.duck(0.3);
+      }
+    } else if (this._orientationBlocked) {
+      this._clearOrientationBlock();
+    }
+  }
+
+  /** @param {boolean} [restoreAudio=true] */
+  _clearOrientationBlock(restoreAudio = true) {
+    if (!this._orientationBlocked) {
+      this.ui.hideRotatePrompt();
+      return;
+    }
+    this._orientationBlocked = false;
+    this.ui.hideRotatePrompt();
+    this.clock.getDelta();
+    if (restoreAudio && (this.state === 'playing' || this.state === 'mp-playing')) {
+      this.audio.unduck();
+      this.audio.play();
+      if (Input.prefersTilt() && this.input.isTiltActive()) {
+        this.input.calibrateTilt();
+      }
+    }
+  }
+
   endStage(forceWin = false) {
     if (this.state !== 'playing' && !forceWin) return;
+    this._clearOrientationBlock(false);
     const sizeCm = this.ball?.diameterCm ?? 0;
     const won = forceWin || this.isMissionComplete();
     this._lastResult = {
@@ -560,6 +615,7 @@ export class Game {
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(w, h);
+    this.updateOrientationGate();
   }
 
   animate = () => {
@@ -577,40 +633,46 @@ export class Game {
     this._escWasDown = esc;
 
     if (this.state === 'playing' && this.ball) {
-      const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
-      this.ball.update(dt, wish);
-      this.collectibles.update(dt, this.ball);
-      this.followCam.update(dt, this.ball, wish);
+      this.updateOrientationGate();
+      if (!this._orientationBlocked) {
+        const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
+        this.ball.update(dt, wish);
+        this.collectibles.update(dt, this.ball);
+        this.followCam.update(dt, this.ball, wish);
 
-      this.timeLeft -= dt;
-      this.ui.updateHud(this.ball.diameterCm, Math.max(0, this.timeLeft), {
-        mode: this.stage.mode ?? 'size',
-        collectCount: this.collectCount,
-        collectGoal: this.stage.collectGoal,
-        collectType: this.stage.collectType,
-      });
+        this.timeLeft -= dt;
+        this.ui.updateHud(this.ball.diameterCm, Math.max(0, this.timeLeft), {
+          mode: this.stage.mode ?? 'size',
+          collectCount: this.collectCount,
+          collectGoal: this.stage.collectGoal,
+          collectType: this.stage.collectType,
+        });
 
-      if (this.isMissionComplete()) {
-        this.endStage(true);
-      } else if (this.timeLeft <= 0) {
-        this.endStage(false);
+        if (this.isMissionComplete()) {
+          this.endStage(true);
+        } else if (this.timeLeft <= 0) {
+          this.endStage(false);
+        }
       }
     }
 
     if (this.state === 'mp-playing' && this.mp && this.ball) {
-      const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
-      this.mp.update(dt, wish);
-      this.followCam.update(dt, this.ball, wish);
-      const roster = this.mp.players.map((p) => ({
-        name: p.name,
-        sizeCm: p.ball?.diameterCm ?? 0,
-        you: p.id === this.mp.localId,
-      }));
-      this.ui.updateHud(this.ball.diameterCm, Math.max(0, this.timeLeft), {
-        mode: 'size',
-        multiplayer: true,
-        roster,
-      });
+      this.updateOrientationGate();
+      if (!this._orientationBlocked) {
+        const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
+        this.mp.update(dt, wish);
+        this.followCam.update(dt, this.ball, wish);
+        const roster = this.mp.players.map((p) => ({
+          name: p.name,
+          sizeCm: p.ball?.diameterCm ?? 0,
+          you: p.id === this.mp.localId,
+        }));
+        this.ui.updateHud(this.ball.diameterCm, Math.max(0, this.timeLeft), {
+          mode: 'size',
+          multiplayer: true,
+          roster,
+        });
+      }
     }
 
     if (this.state === 'mp-result' && this.mp) {

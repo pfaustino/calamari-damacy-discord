@@ -199,6 +199,30 @@ body {
   margin: 0 0 1.25rem;
 }
 
+.rotate-overlay {
+  z-index: 15;
+  background: rgba(6, 24, 40, 0.88);
+  backdrop-filter: blur(6px);
+}
+
+.rotate-panel .rotate-icon {
+  font-size: 2.75rem;
+  margin: 0 0 0.75rem;
+  display: inline-block;
+  animation: rotate-hint 2.4s ease-in-out infinite;
+}
+
+.rotate-panel h2 {
+  font-family: 'Fredoka', sans-serif;
+  margin: 0 0 0.75rem;
+}
+
+@keyframes rotate-hint {
+  0%, 100% { transform: rotate(0deg); }
+  40% { transform: rotate(-90deg); }
+  60% { transform: rotate(-90deg); }
+}
+
 .setting-row {
   display: grid;
   grid-template-columns: 7.5rem 1fr 3rem;
