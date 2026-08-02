@@ -6,14 +6,13 @@ const _ndc = new THREE.Vector2();
 const _hit = new THREE.Vector3();
 /** Ignore micro-jitter when the ground aim is on top of the ball. */
 const MIN_STEER_DIST_SQ = 0.25;
-/** m/s² delta from neutral before steering kicks in (~small wrist tilt). */
+/** m/s² from table-flat before steering kicks in (~small wrist tilt). */
 const TILT_DEADZONE = 1.25;
-/** m/s² delta for full stick deflection. */
+/** m/s² for full stick deflection. */
 const TILT_MAX = 4.5;
 /** Power curve on normalized tilt: >1 = gentle at low lean, full speed at strong tilt. */
 const TILT_CURVE_EXPONENT = 2.2;
 const TILT_SMOOTH = 0.22;
-const CALIBRATE_MS = 450;
 
 /**
  * Keyboard + mouse (desktop) or device tilt (mobile) for rolling the calamari.
@@ -31,30 +30,13 @@ export class Input {
     this._motionBound = false;
     this._gravX = 0;
     this._gravY = 0;
-    this._neutralGravX = 0;
-    this._neutralGravY = 0;
-    this._calibrating = false;
-    /** @type {{ x: number, y: number }[]} */
-    this._calibSamples = [];
-    this._calibEndsAt = 0;
 
     this._onMotion = (e) => {
       const g = e.accelerationIncludingGravity;
       if (!g || g.x == null || g.y == null) return;
 
-      const rawX = g.x;
-      const rawY = g.y;
-
-      if (this._calibrating) {
-        this._calibSamples.push({ x: rawX, y: rawY });
-        if (performance.now() >= this._calibEndsAt) {
-          this._finishCalibration();
-        }
-        return;
-      }
-
-      this._gravX += (rawX - this._gravX) * TILT_SMOOTH;
-      this._gravY += (rawY - this._gravY) * TILT_SMOOTH;
+      this._gravX += (g.x - this._gravX) * TILT_SMOOTH;
+      this._gravY += (g.y - this._gravY) * TILT_SMOOTH;
     };
 
     this._onDown = (e) => {
@@ -126,7 +108,7 @@ export class Input {
 
   static getControlHint() {
     if (Input.prefersTilt()) {
-      return 'Tilt phone to roll · hold level in landscape at stage start';
+      return 'Lay phone flat like a marble tray · tilt in landscape to roll · Esc pause';
     }
     return 'Click / hold to roll toward cursor · WASD · scroll zoom · Esc pause';
   }
@@ -195,7 +177,6 @@ export class Input {
     }
 
     this._tiltActive = true;
-    this.calibrateTilt();
     return true;
   }
 
@@ -205,33 +186,6 @@ export class Input {
       this._motionBound = false;
     }
     this._tiltActive = false;
-    this._calibrating = false;
-    this._calibSamples = [];
-  }
-
-  /** Average gravity over a short window so neutral matches how you're holding the phone. */
-  calibrateTilt() {
-    this._calibrating = true;
-    this._calibSamples = [];
-    this._calibEndsAt = performance.now() + CALIBRATE_MS;
-  }
-
-  _finishCalibration() {
-    if (this._calibSamples.length > 0) {
-      let sx = 0;
-      let sy = 0;
-      for (const s of this._calibSamples) {
-        sx += s.x;
-        sy += s.y;
-      }
-      const n = this._calibSamples.length;
-      this._neutralGravX = sx / n;
-      this._neutralGravY = sy / n;
-      this._gravX = this._neutralGravX;
-      this._gravY = this._neutralGravY;
-    }
-    this._calibrating = false;
-    this._calibSamples = [];
   }
 
   /** Screen rotation in degrees (0 portrait, 90/270 landscape). */
@@ -241,19 +195,44 @@ export class Input {
   }
 
   /**
-   * Map device gravity delta to camera-relative wish.
+   * Device-fixed gravity (gx, gy) into screen-space tilt.
+   * Neutral is table-flat screen-up (gx=0, gy=0); gravity mostly on Z.
+   */
+  _deviceTiltToScreen(gx, gy) {
+    const type = screen.orientation?.type;
+    switch (type) {
+      case 'landscape-primary':
+        return { sx: gy, sy: -gx };
+      case 'landscape-secondary':
+        return { sx: -gy, sy: gx };
+      case 'portrait-secondary':
+        return { sx: -gx, sy: -gy };
+      case 'portrait-primary':
+        return { sx: gx, sy: gy };
+      default:
+        break;
+    }
+
+    // Some WebViews (e.g. Discord) report angle 0 in landscape — use viewport.
+    if (!Input.isPortrait()) {
+      if (this._screenAngleDeg() === 270) {
+        return { sx: -gy, sy: gx };
+      }
+      return { sx: gy, sy: -gx };
+    }
+    if (this._screenAngleDeg() === 180) {
+      return { sx: -gx, sy: -gy };
+    }
+    return { sx: gx, sy: gy };
+  }
+
+  /**
+   * Map device gravity to camera-relative wish.
    * Device axes are portrait-fixed on Android; rotate into screen space, then
    * map screen tilt to roll (marble-on-a-tray: lean edge down → roll that way).
    */
   _gravityToWish() {
-    const dx = this._gravX - this._neutralGravX;
-    const dy = this._gravY - this._neutralGravY;
-
-    const rad = (-this._screenAngleDeg() * Math.PI) / 180;
-    const cos = Math.cos(rad);
-    const sin = Math.sin(rad);
-    const sx = dx * cos - dy * sin;
-    const sy = dx * sin + dy * cos;
+    const { sx, sy } = this._deviceTiltToScreen(this._gravX, this._gravY);
 
     const x = sx;
     const z = -sy;
@@ -284,7 +263,7 @@ export class Input {
 
   /** @returns {{ x: number, z: number }} camera-relative tilt wish */
   getTiltMoveVector() {
-    if (!this._tiltActive || this._calibrating) return { x: 0, z: 0 };
+    if (!this._tiltActive) return { x: 0, z: 0 };
     return this._gravityToWish();
   }
 

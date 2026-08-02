@@ -265,8 +265,6 @@ export class Game {
           return;
         }
         await this.input.enableTilt();
-      } else {
-        this.input.calibrateTilt();
       }
     }
     this.startStage(stageId);
@@ -389,9 +387,6 @@ export class Game {
     this.state = 'mp-playing';
     this.ui.showPlaying(this.stage, { multiplayer: true });
     this.ui.setControlHint(Input.getControlHint());
-    if (Input.prefersTilt() && this.input.isTiltActive()) {
-      this.input.calibrateTilt();
-    }
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
@@ -489,9 +484,6 @@ export class Game {
     }
     this.audio.unduck();
     this.audio.play();
-    if (Input.prefersTilt() && this.input.isTiltActive()) {
-      this.input.calibrateTilt();
-    }
   }
 
   /** Pause gameplay on mobile portrait without changing Esc-pause state. */
@@ -528,9 +520,6 @@ export class Game {
     if (restoreAudio && (this.state === 'playing' || this.state === 'mp-playing')) {
       this.audio.unduck();
       this.audio.play();
-      if (Input.prefersTilt() && this.input.isTiltActive()) {
-        this.input.calibrateTilt();
-      }
     }
   }
 
