@@ -31,6 +31,35 @@ function leaderboardApiPath(path) {
 }
 
 /**
+ * One row per player (case-insensitive); keep best value.
+ * @param {Array<{ player: string, value: number, meta?: object | null, at?: number }>} rows
+ * @param {'desc' | 'asc'} [sort='desc']
+ */
+export function dedupeLeaderboardRows(rows, sort = 'desc') {
+  const bestByPlayer = new Map();
+  for (const row of rows) {
+    const key = String(row.player).trim().toLowerCase();
+    const prev = bestByPlayer.get(key);
+    const at = Number(row.at) || 0;
+    const entry = { ...row, at };
+    if (!prev) {
+      bestByPlayer.set(key, entry);
+      continue;
+    }
+    const better = sort === 'asc' ? row.value < prev.value : row.value > prev.value;
+    if (better || (row.value === prev.value && at < prev.at)) {
+      bestByPlayer.set(key, entry);
+    }
+  }
+  const out = [...bestByPlayer.values()];
+  out.sort((a, b) => {
+    if (sort === 'asc') return a.value - b.value || a.at - b.at;
+    return b.value - a.value || a.at - b.at;
+  });
+  return out;
+}
+
+/**
  * @returns {Promise<{ ok: true, rows: Array<{ player: string, value: number, meta: object | null }> } | { ok: false, error: string }>}
  */
 export async function fetchGlobalLeaderboard(limit = 50) {
@@ -44,7 +73,8 @@ export async function fetchGlobalLeaderboard(limit = 50) {
       return { ok: false, error: `Server returned ${res.status}` };
     }
     const data = await res.json();
-    return { ok: true, rows: data.rows ?? [] };
+    const rows = dedupeLeaderboardRows(data.rows ?? [], 'desc');
+    return { ok: true, rows };
   } catch {
     return { ok: false, error: 'Could not reach leaderboard server' };
   }
