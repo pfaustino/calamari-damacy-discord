@@ -3,6 +3,7 @@
   "title": "Calamari Damacy",
   "tuning": {
     "pushForce": 22,
+    "mobilePushScale": 0.5,
     "baseMass": 1.4,
     "massPerRadius": 3.2,
     "collisionMassPerRadius": 0.2,

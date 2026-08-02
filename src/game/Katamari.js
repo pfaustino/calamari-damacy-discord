@@ -371,8 +371,12 @@ export class Katamari {
       const startR = this.game.stage.startRadius;
       const sizeBoost = 1 + Math.max(0, this.radius - startR) * sizeSpeedGain;
       const a = (pushForce * sizeBoost) / Math.max(0.2, this.pushMass);
-      this.velocity.x += wish.x * a * dt;
-      this.velocity.z += wish.z * a * dt;
+      const mobileScale = (typeof window !== 'undefined'
+        && window.matchMedia('(pointer: coarse)').matches)
+        ? (this.game.tuning.mobilePushScale ?? 0.5)
+        : 1;
+      this.velocity.x += wish.x * a * dt * mobileScale;
+      this.velocity.z += wish.z * a * dt * mobileScale;
     }
 
     // Per-object scrape, soft-capped — binge scoops must not stack into a crawl
