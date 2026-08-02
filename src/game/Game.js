@@ -19,6 +19,7 @@ import {
 import { Multiplayer } from './Multiplayer.js';
 import { initDevPanel } from '../dev/DevPanel.js';
 import { trySubmitGlobalClear } from '../lib/globalLeaderboard.js';
+import { discordDisplayName } from '../discord/setupDiscordSdk.js';
 
 /** @typedef {'title' | 'playing' | 'paused' | 'mp-paused' | 'result' | 'present' | 'cosmos' | 'leaderboard' | 'lobby' | 'mp-playing' | 'mp-result'} GameState */
 
@@ -26,13 +27,22 @@ import { trySubmitGlobalClear } from '../lib/globalLeaderboard.js';
  * Thin orchestrator — wires systems and owns the state machine.
  */
 export class Game {
-  constructor() {
+  /**
+   * @param {{ discord?: { sdk: import('@discord/embedded-app-sdk').DiscordSDK, auth: import('@discord/embedded-app-sdk').Auth } | null }} [options]
+   */
+  constructor(options = {}) {
+    this.discord = options.discord ?? null;
     this.state = /** @type {GameState} */ ('title');
     this.tuning = null;
     this.stages = [];
     this.stage = null;
     this.objectTypes = [];
     this.progress = loadProgress();
+    const discordName = discordDisplayName(this.discord);
+    if (discordName && !this.progress.leaderboardName) {
+      const next = setLeaderboardName(this.progress, discordName);
+      if (next) this.progress = next;
+    }
     this._lastResult = null;
 
     this.scene = null;
@@ -284,6 +294,11 @@ export class Game {
     this.mp = new Multiplayer(this);
     this.state = 'lobby';
     this.ui.showMpMenu();
+    const mpName = /** @type {HTMLInputElement | null} */ (document.getElementById('mp-name'));
+    const discordName = discordDisplayName(this.discord);
+    if (mpName && discordName && !mpName.value.trim()) {
+      mpName.value = discordName.slice(0, 16);
+    }
     this.audio.unlockAndPlay();
     this.audio.duck(0.45);
     this.audio.play();

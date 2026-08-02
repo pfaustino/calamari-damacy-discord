@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:server": "npm --prefix server run dev",
+    "dev:discord": "concurrently -k \"npm run dev:server\" \"npm run dev\"",
     "build": "vite build",
     "preview": "vite preview",
     "smoke": "node scripts/smoke-check.mjs",
@@ -13,11 +15,13 @@
     "test:e2e:headed": "playwright test --headed"
   },
   "dependencies": {
+    "@discord/embedded-app-sdk": "^2.2.0",
     "peerjs": "^1.5.5",
     "three": "^0.170.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.0",
+    "concurrently": "^9.1.2",
     "vite": "^6.3.5"
   }
 }

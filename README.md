@@ -1,27 +1,61 @@
 # Calamari Damacy (Discord)
 
-A browser-based **Katamari Damacy**-inspired roller — this repo is the home for the [Discord Activity](https://docs.discord.com/developers/activities/overview) port of [Calamari Damacy](https://github.com/pfaustino/calamari-damacy).
+A browser-based **Katamari Damacy**-inspired roller — Discord Activity port of [Calamari Damacy](https://github.com/pfaustino/calamari-damacy).
 
-**Play:** [pfaustino.github.io/calamari-damacy-discord](https://pfaustino.github.io/calamari-damacy-discord/)
+**Play (browser):** [pfaustino.github.io/calamari-damacy-discord](https://pfaustino.github.io/calamari-damacy-discord/)
+
+**Play (Discord):** launch the Activity from a voice channel after URL mapping is configured (see below).
 
 ## Play locally
 
 ```bash
 npm install
-npm run dev
+npm --prefix server install
+cp .env.example .env   # fill in Discord + leaderboard keys
+npm run dev:discord    # Vite + OAuth server
 ```
 
 Open http://localhost:5173 — click **Start Rolling**, then WASD / arrows to roll.
 
-## Core loop
+For in-Discord testing, expose the dev server with [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/) and set that URL in the Discord Developer Portal **URL Mappings**.
 
-1. Pick a mission from **The Cosmos** (or Start Rolling)  
-2. Roll into anything **smaller than you** — it sticks and melts into volume  
-3. Hit the size goal before time runs out  
-4. **Present to the King** → your calamari becomes a star  
-5. Unlock the next stage  
+## Discord setup
 
-On failure: **Try Again** (same mission).
+1. [Developer Portal](https://discord.com/developers/applications) → your app → **OAuth2** → add redirect `https://127.0.0.1`
+2. **Activities** → enable Activity → **URL Mapping** → `/` → your hosted URL (Vercel recommended; see below)
+3. **Installation** → enable User Install + Guild Install
+
+### Deploy for Discord (Vercel)
+
+GitHub Pages serves the static game only. Discord OAuth needs `/api/token`, so deploy the full project to Vercel:
+
+```bash
+npx vercel
+```
+
+Set environment variables in Vercel:
+
+- `VITE_DISCORD_CLIENT_ID`
+- `DISCORD_CLIENT_SECRET`
+- `VITE_LEADERBOARD_WRITE_KEY` (optional, for global scores)
+- `VITE_BASE_PATH=/`
+
+Point Discord **URL Mapping** `/` at your Vercel URL (e.g. `https://calamari-damacy-discord.vercel.app`).
+
+## Scripts
+
+| Command | Purpose |
+|---------|---------|
+| `npm run dev` | Vite only (no OAuth) |
+| `npm run dev:discord` | Vite + OAuth server for Activity dev |
+| `npm run check` | Smoke + production build |
+| `npm run test:e2e` | Playwright smoke |
+
+## Roadmap
+
+- [x] Discord Embedded App SDK + OAuth
+- [ ] WebSocket multiplayer (replace PeerJS for Discord sandbox)
+- [ ] Touch controls for mobile Discord
 
 ## Stack
 
@@ -29,26 +63,5 @@ On failure: **Try Again** (same mission).
 |-------|--------|
 | Bundler | Vite |
 | 3D | Three.js |
-| Balance | `data/*.json` |
-| Quality | smoke-check + Playwright |
-
-## Scripts
-
-| Command | Purpose |
-|---------|---------|
-| `npm run dev` | Local play |
-| `npm run check` | Smoke + production build |
-| `npm run test:e2e` | Playwright smoke |
-| `npm run test:e2e:headed` | Visible e2e |
-
-Dev cheats: open with `?dev=1` (also auto-on in Vite DEV).
-
-## Roadmap
-
-- [ ] Discord Embedded App SDK + OAuth server
-- [ ] WebSocket multiplayer (replace PeerJS for Discord sandbox)
-- [ ] Touch controls for mobile Discord
-
-## Multiplayer (current)
-
-Title → **Multiplayer**: host a room (share the code) or join. Race to the size goal; bump rivals to steal volume. Host simulates; guests send input (PeerJS). Works in a normal browser; PeerJS will be replaced for the Discord Activity build.
+| Discord | `@discord/embedded-app-sdk` |
+| OAuth | Express (local) / Vercel serverless (prod) |
