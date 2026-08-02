@@ -250,6 +250,9 @@ export class Game {
       this._pendingStageId = null;
       this.ui.hideTiltPrompt();
     });
+    document.getElementById('btn-hud-pause').addEventListener('click', () => {
+      if (this.state === 'playing' || this.state === 'mp-playing') this.pause();
+    });
   }
 
   /**

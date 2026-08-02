@@ -59,6 +59,12 @@ body {
   gap: 1rem;
 }
 
+.hud-top-actions {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
 .hud-size,
 .hud-timer {
   background: var(--panel);
@@ -67,6 +73,41 @@ body {
   padding: 0.65rem 1rem;
   min-width: 7rem;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.hud-pause-btn {
+  display: none;
+  pointer-events: auto;
+  flex-shrink: 0;
+  align-self: flex-start;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  font-size: 1.15rem;
+  line-height: 1;
+  width: 2.65rem;
+  height: 2.65rem;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: var(--panel);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  color: var(--cream);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.hud-pause-btn:active {
+  transform: scale(0.94);
+}
+
+@media (pointer: coarse) {
+  .hud-pause-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 
 .hud-label {

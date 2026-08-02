@@ -106,7 +106,7 @@ export class Input {
 
   static getControlHint() {
     if (Input.prefersTilt()) {
-      return 'Lay phone flat like a marble tray · tilt in landscape to roll · Esc pause';
+      return 'Lay phone flat like a marble tray · tilt in landscape to roll · ☰ pause';
     }
     return 'Click / hold to roll toward cursor · WASD · scroll zoom · Esc pause';
   }
