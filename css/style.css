@@ -107,6 +107,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 3.75rem);
+    right: 1.25rem;
+    z-index: 6;
   }
 }
 
