@@ -7,6 +7,7 @@
   --cream: #f0f7fa;
   --accent: #ffd166;
   --panel: rgba(10, 40, 60, 0.82);
+  --discord-rail-width: 0px;
 }
 
 *,
@@ -56,6 +57,7 @@ body {
   justify-content: space-between;
   align-items: flex-start;
   padding: 1rem 1.25rem;
+  padding-right: calc(1.25rem + var(--discord-rail-width));
   gap: 1rem;
 }
 
@@ -103,13 +105,18 @@ body {
 }
 
 @media (pointer: coarse) {
+  :root {
+    /* Discord Activity overlay rail on the right (wider than the exit button). */
+    --discord-rail-width: 5rem;
+  }
+
   .hud-pause-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 3.75rem);
-    right: 1.25rem;
+    right: calc(env(safe-area-inset-right, 0px) + var(--discord-rail-width) + 0.35rem);
     z-index: 6;
   }
 }
@@ -789,6 +796,7 @@ body {
 
   .hud-top {
     padding: 0.75rem;
+    padding-right: calc(0.75rem + var(--discord-rail-width));
   }
 
   .hud-stage {
