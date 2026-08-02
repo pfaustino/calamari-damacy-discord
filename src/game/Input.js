@@ -10,8 +10,6 @@ const MIN_STEER_DIST_SQ = 0.25;
 const TILT_DEADZONE = 1.25;
 /** m/s² for full stick deflection. */
 const TILT_MAX = 4.5;
-/** Power curve on normalized tilt: >1 = gentle at low lean, full speed at strong tilt. */
-const TILT_CURVE_EXPONENT = 2.2;
 const TILT_SMOOTH = 0.22;
 
 /**
@@ -240,8 +238,7 @@ export class Input {
     const len = Math.hypot(x, z);
     if (len < TILT_DEADZONE) return { x: 0, z: 0 };
 
-    const norm = Math.min(1, (len - TILT_DEADZONE) / (TILT_MAX - TILT_DEADZONE));
-    const strength = norm ** TILT_CURVE_EXPONENT;
+    const strength = Math.min(1, (len - TILT_DEADZONE) / (TILT_MAX - TILT_DEADZONE));
     return { x: (x / len) * strength, z: (z / len) * strength };
   }
 

@@ -56,12 +56,18 @@ export class FollowCamera {
     }
 
     if (faceX !== 0 || faceZ !== 0) {
-      const targetYaw = Math.atan2(faceX, faceZ);
-      let diff = targetYaw - this.yaw;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      const turn = 1 - Math.exp(-cameraLerp * dt);
-      this.yaw += diff * turn;
+      const fwdX = Math.sin(this.yaw);
+      const fwdZ = Math.cos(this.yaw);
+      const dot = faceX * fwdX + faceZ * fwdZ;
+      // Marble-tray: roll backward toward camera without flipping yaw 180°.
+      if (dot > 0) {
+        const targetYaw = Math.atan2(faceX, faceZ);
+        let diff = targetYaw - this.yaw;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        const turn = 1 - Math.exp(-cameraLerp * dt);
+        this.yaw += diff * turn;
+      }
     }
 
     const dist = (cameraDistance + ball.radius * 2.2) * this.zoom;
