@@ -373,7 +373,7 @@ export class Katamari {
       const a = (pushForce * sizeBoost) / Math.max(0.2, this.pushMass);
       const mobileScale = (typeof window !== 'undefined'
         && window.matchMedia('(pointer: coarse)').matches)
-        ? (this.game.tuning.mobilePushScale ?? 0.5)
+        ? (this.game.tuning.mobilePushScale ?? 0.43)
         : 1;
       this.velocity.x += wish.x * a * dt * mobileScale;
       this.velocity.z += wish.z * a * dt * mobileScale;
