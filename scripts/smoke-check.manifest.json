@@ -1,0 +1,16 @@
+{
+  "required": [
+    "index.html",
+    "ARCHITECTURE.md",
+    "package.json",
+    "data/game.json",
+    "data/stages.json",
+    "data/objects.json",
+    "src/main.js",
+    "src/game/Game.js",
+    "public/audio/vintage-mouse-hunt.mp3",
+    "public/audio/vintage-piano.mp3",
+    "public/audio/vintage-jazz-coffee.mp3",
+    "public/audio/vintage-comedy.mp3"
+  ]
+}

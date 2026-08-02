@@ -1,0 +1,30 @@
+{
+  "version": "0.1.0",
+  "title": "Calamari Damacy",
+  "tuning": {
+    "pushForce": 22,
+    "baseMass": 1.4,
+    "massPerRadius": 3.2,
+    "collisionMassPerRadius": 0.2,
+    "objectCollisionScale": 3.5,
+    "sizeSpeedGain": 0.08,
+    "rollingFriction": 0.7,
+    "airDrag": 0.055,
+    "wallBounce": 0.4,
+    "pickupRatio": 0.72,
+    "volumePacking": 1.15,
+    "meltDuration": 40,
+    "protrusionInertia": 1.6,
+    "scrapeFriction": 0.08,
+    "scrapeMassCap": 1.5,
+    "bonkRestitution": 0.55,
+    "objectFriction": 2.8,
+    "cameraDistance": 8,
+    "cameraHeight": 4.5,
+    "cameraLerp": 4,
+    "cameraZoomMin": 0.45,
+    "cameraZoomMax": 2.4,
+    "cameraZoomStep": 0.12
+  },
+  "notes": "Keep stage timers (Katamari tension). Growth uses r³ volume units with volumePacking so goals are reachable. Bonks use light collisionMass."
+}

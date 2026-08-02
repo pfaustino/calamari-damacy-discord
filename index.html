@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calamari Damacy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div id="game-root">
+    <canvas id="game-canvas"></canvas>
+
+    <div id="hud" class="hidden" aria-live="polite">
+      <div class="hud-top">
+        <div class="hud-size">
+          <span class="hud-label">Size</span>
+          <span id="hud-size-value">0 cm</span>
+          <span id="hud-size-goal" class="hud-goal"></span>
+        </div>
+        <div class="hud-timer">
+          <span class="hud-label">Time</span>
+          <span id="hud-timer-value">3:00</span>
+        </div>
+      </div>
+      <div id="hud-stage-name" class="hud-stage"></div>
+      <div id="hud-mp-roster" class="hud-mp-roster hidden"></div>
+      <div id="hud-mp-event" class="hud-mp-event hidden"></div>
+      <div class="hud-hint">WASD / arrows to roll · scroll zoom · Esc pause</div>
+    </div>
+
+    <div id="title-screen" class="overlay">
+      <div class="overlay-panel">
+        <p class="eyebrow">We ♡ Rolling</p>
+        <h1 class="brand">Calamari Damacy</h1>
+        <p class="tagline">Roll up the ocean floor. Grow your sticky squid-ball. Hang new stars for the King of the Cosmos.</p>
+        <div class="cta-row">
+          <button type="button" id="btn-play" class="btn primary">Start Rolling</button>
+          <button type="button" id="btn-title-cosmos" class="btn">The Cosmos</button>
+          <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
+          <button type="button" id="btn-mp" class="btn">Multiplayer</button>
+        </div>
+        <p class="controls-blurb">WASD or arrow keys · collect anything smaller than you</p>
+      </div>
+    </div>
+
+    <div id="leaderboard-screen" class="overlay hidden">
+      <div class="overlay-panel leaderboard-panel">
+        <h2 class="leaderboard-heading">Leaderboard</h2>
+        <div class="leaderboard-tabs">
+          <button type="button" class="btn leaderboard-tab is-active" data-tab="local" id="btn-lb-local">Local</button>
+          <button type="button" class="btn leaderboard-tab" data-tab="global" id="btn-lb-global">Global</button>
+        </div>
+        <div class="leaderboard-name-row">
+          <label class="leaderboard-name-label" for="leaderboard-name">Global name</label>
+          <input id="leaderboard-name" class="leaderboard-name-input" maxlength="24" placeholder="Name for global board" autocomplete="off" />
+          <button type="button" class="btn" id="btn-save-lb-name">Save</button>
+        </div>
+        <p id="leaderboard-status" class="leaderboard-status" aria-live="polite"></p>
+        <div id="leaderboard-panel-local"></div>
+        <div id="leaderboard-panel-global" class="hidden">
+          <p class="leaderboard-sub">Biggest clears worldwide (size in cm)</p>
+          <p class="leaderboard-loading" id="global-loading">Loading…</p>
+          <div id="global-rows"></div>
+        </div>
+        <div class="cta-row">
+          <button type="button" id="btn-leaderboard-close" class="btn">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mp-screen" class="overlay hidden">
+      <div class="overlay-panel">
+        <p class="eyebrow">Race + Battle</p>
+        <h2 class="brand cosmos-brand">Multiplayer</h2>
+        <p class="tagline">First to the size goal wins. Bump rivals to steal sticky volume.</p>
+        <div class="mp-form">
+          <label class="mp-label" for="mp-name">Your name</label>
+          <input id="mp-name" class="mp-input" type="text" maxlength="16" placeholder="Prince" autocomplete="off" />
+          <label class="mp-label" for="mp-code">Room code</label>
+          <input id="mp-code" class="mp-input" type="text" maxlength="8" placeholder="Join code" autocomplete="off" />
+        </div>
+        <p id="mp-status" class="mp-status">Host a room, or enter a code to join.</p>
+        <p id="mp-room-code" class="mp-room-code hidden"></p>
+        <div id="mp-roster" class="mp-roster" aria-live="polite"></div>
+        <div class="cta-row">
+          <button type="button" id="btn-mp-host" class="btn primary">Host room</button>
+          <button type="button" id="btn-mp-join" class="btn">Join</button>
+        </div>
+        <div class="cta-row">
+          <button type="button" id="btn-mp-start" class="btn primary hidden">Start match</button>
+          <button type="button" id="btn-mp-leave" class="btn">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mp-result-screen" class="overlay hidden">
+      <div class="overlay-panel">
+        <h2 id="mp-result-title">Match over</h2>
+        <p id="mp-result-message" class="tagline"></p>
+        <div id="mp-result-rankings" class="mp-rankings"></div>
+        <p id="mp-vote-countdown" class="mp-vote-countdown">Next race in 15…</p>
+        <p class="mp-vote-hint">Vote for what happens next. Non-votes = same stage.</p>
+        <div id="mp-vote-board" class="mp-vote-board" aria-live="polite"></div>
+        <div class="mp-vote-choices" role="group" aria-label="Post-match vote">
+          <button type="button" class="btn primary mp-vote-btn" data-vote="same">Same stage</button>
+          <button type="button" class="btn mp-vote-btn" data-vote="next">Next stage</button>
+          <button type="button" class="btn mp-vote-btn" data-vote="pause">Pause</button>
+          <button type="button" class="btn mp-vote-btn" data-vote="leave">Leave</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="pause-screen" class="overlay hidden">
+      <div id="pause-main" class="overlay-panel compact pause-panel">
+        <h2>Paused</h2>
+        <div class="cta-col">
+          <button type="button" id="btn-resume" class="btn primary">Resume</button>
+          <button type="button" id="btn-sound" class="btn">Sound</button>
+          <button type="button" id="btn-about" class="btn">About</button>
+          <button type="button" id="btn-quit" class="btn">Quit to Title</button>
+        </div>
+      </div>
+
+      <div id="pause-sound" class="overlay-panel compact pause-panel hidden">
+        <h2>Sound</h2>
+        <div class="setting-row">
+          <label for="slider-music">Music</label>
+          <input type="range" id="slider-music" min="0" max="100" value="65" />
+          <span id="slider-music-val" class="setting-val">65%</span>
+        </div>
+        <div class="setting-row">
+          <label for="slider-sfx">Sound Effects</label>
+          <input type="range" id="slider-sfx" min="0" max="100" value="55" />
+          <span id="slider-sfx-val" class="setting-val">55%</span>
+        </div>
+        <div class="cta-row">
+          <button type="button" id="btn-sound-back" class="btn">Back</button>
+        </div>
+      </div>
+
+      <div id="pause-about" class="overlay-panel compact pause-panel hidden">
+        <h2>About</h2>
+        <div class="about-body">
+          <p><strong>Calamari Damacy</strong> — a sticky-ball roller inspired by Katamari Damacy.</p>
+          <p>Development: <strong>Patrick Faustino</strong> &amp; AI</p>
+          <p>Engine: Three.js · Bundler: Vite</p>
+          <p>Music: tracks from <a href="https://pixabay.com/" target="_blank" rel="noopener noreferrer">Pixabay</a> (Vintage Mouse Hunt, Vintage Piano, Vintage Jazz Coffee Shop, Vintage Comedy).</p>
+          <p class="about-note">Not affiliated with Bandai Namco or Katamari Damacy.</p>
+        </div>
+        <div class="cta-row">
+          <button type="button" id="btn-about-back" class="btn">Back</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="result-screen" class="overlay hidden">
+      <div class="overlay-panel">
+        <h2 id="result-title">Fantastic!</h2>
+        <p id="result-message" class="tagline"></p>
+        <p id="result-stats" class="result-stats"></p>
+        <div id="result-score-row" class="leaderboard-name-row">
+          <label class="leaderboard-name-label" for="result-name">Your name</label>
+          <input id="result-name" class="leaderboard-name-input" maxlength="24" placeholder="Save to leaderboard" autocomplete="off" />
+          <button type="button" class="btn" id="btn-result-save-score">Save score</button>
+        </div>
+        <p id="result-score-status" class="leaderboard-status" aria-live="polite"></p>
+        <div class="cta-row">
+          <button type="button" id="btn-result-primary" class="btn primary">Present to the King</button>
+          <button type="button" id="btn-title" class="btn">Title</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="present-screen" class="overlay cosmos-sky hidden">
+      <div class="sky-stars" aria-hidden="true"></div>
+      <div id="rising-star" class="rising-star" aria-hidden="true"></div>
+      <div class="overlay-panel present-panel">
+        <p class="eyebrow">The King of the Cosmos</p>
+        <h2 id="present-star-name">A new star!</h2>
+        <p id="present-message" class="tagline"></p>
+        <p id="present-stats" class="result-stats"></p>
+        <div class="cta-row">
+          <button type="button" id="btn-view-cosmos" class="btn primary">View the Cosmos</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="cosmos-screen" class="overlay cosmos-sky hidden">
+      <div class="sky-stars" aria-hidden="true"></div>
+      <div class="overlay-panel cosmos-panel">
+        <p class="eyebrow">Night Sky</p>
+        <h2 class="brand cosmos-brand">The Cosmos</h2>
+        <p class="tagline cosmos-tagline">Each clear hangs a star. Choose your next mission.</p>
+        <div id="hung-stars" class="hung-stars" aria-label="Stars you have hung"></div>
+        <div id="stage-list" class="stage-list"></div>
+        <div class="cta-row">
+          <button type="button" id="btn-cosmos-title" class="btn">Title</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
