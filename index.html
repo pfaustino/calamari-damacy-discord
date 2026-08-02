@@ -49,7 +49,30 @@
       <div class="overlay-panel compact rotate-panel">
         <div class="rotate-icon" aria-hidden="true">📱</div>
         <h2>Rotate to landscape</h2>
-        <p class="tagline">Turn your phone sideways to play. Tilt controls work best in landscape.</p>
+        <p class="tagline">Turn your phone sideways to play.</p>
+      </div>
+    </div>
+
+    <div id="controller-prompt" class="overlay hidden" aria-live="polite">
+      <div class="overlay-panel compact">
+        <h2>Roll controls</h2>
+        <p class="tagline">Choose how you want to steer.</p>
+        <div class="controller-mode-picker" role="group" aria-label="Controller mode">
+          <button type="button" class="btn controller-mode-btn" data-mode="tilt">
+            <span class="mode-title">Tilt</span>
+            <span class="mode-desc">Lay phone flat and tilt like a marble tray</span>
+          </button>
+          <button type="button" class="btn controller-mode-btn" data-mode="thumbpad">
+            <span class="mode-title">Thumb pad</span>
+            <span class="mode-desc">Virtual stick on the bottom left</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="mobile-stick" class="mobile-stick hidden" aria-hidden="true">
+      <div class="mobile-stick-base">
+        <div class="mobile-stick-knob"></div>
       </div>
     </div>
 
@@ -64,7 +87,7 @@
           <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
           <button type="button" id="btn-mp" class="btn">Multiplayer</button>
         </div>
-        <p class="controls-blurb">Desktop: click / hold or WASD · Mobile: tilt in landscape to roll</p>
+        <p class="controls-blurb">Desktop: click / hold or WASD · Mobile: tilt or thumb pad in landscape</p>
       </div>
     </div>
 
@@ -140,9 +163,28 @@
         <h2>Paused</h2>
         <div class="cta-col">
           <button type="button" id="btn-resume" class="btn primary">Resume</button>
+          <button type="button" id="btn-controls" class="btn mobile-only">Controls</button>
           <button type="button" id="btn-sound" class="btn">Sound</button>
           <button type="button" id="btn-about" class="btn">About</button>
           <button type="button" id="btn-quit" class="btn">Quit to Title</button>
+        </div>
+      </div>
+
+      <div id="pause-controls" class="overlay-panel compact pause-panel hidden">
+        <h2>Controls</h2>
+        <p class="tagline">Mobile steering mode</p>
+        <div class="controller-mode-picker controller-mode-picker--compact" role="group" aria-label="Controller mode">
+          <button type="button" class="btn controller-mode-btn" data-mode="tilt">
+            <span class="mode-title">Tilt</span>
+            <span class="mode-desc">Lay phone flat and tilt like a marble tray</span>
+          </button>
+          <button type="button" class="btn controller-mode-btn" data-mode="thumbpad">
+            <span class="mode-title">Thumb pad</span>
+            <span class="mode-desc">Virtual stick on the bottom left</span>
+          </button>
+        </div>
+        <div class="cta-row">
+          <button type="button" id="btn-controls-back" class="btn">Back</button>
         </div>
       </div>
 

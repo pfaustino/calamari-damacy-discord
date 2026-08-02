@@ -264,6 +264,87 @@ body {
   60% { transform: rotate(-90deg); }
 }
 
+.mobile-only {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .mobile-only {
+    display: block;
+  }
+}
+
+.controller-mode-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin: 0 0 0.5rem;
+  min-width: min(18rem, 85vw);
+}
+
+.controller-mode-picker--compact {
+  margin-bottom: 1rem;
+}
+
+.controller-mode-btn {
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  width: 100%;
+}
+
+.controller-mode-btn.is-active {
+  outline: 2px solid var(--accent);
+  background: rgba(255, 209, 102, 0.15);
+}
+
+.mode-title {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+}
+
+.mode-desc {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  line-height: 1.35;
+}
+
+.mobile-stick {
+  position: absolute;
+  left: 1.1rem;
+  bottom: 1.1rem;
+  z-index: 6;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.mobile-stick-base {
+  position: relative;
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 50%;
+  background: rgba(10, 40, 60, 0.55);
+  border: 2px solid rgba(126, 200, 200, 0.35);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.mobile-stick-knob {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: rgba(255, 209, 102, 0.9);
+  transform: translate(-50%, -50%);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
 .setting-row {
   display: grid;
   grid-template-columns: 7.5rem 1fr 3rem;

@@ -62,6 +62,7 @@ export class Game {
     this.collectCount = 0;
     this._escWasDown = false;
     this._orientationBlocked = false;
+    this._controllerBlocked = false;
     this._raf = 0;
     this._worldBuilt = false;
     /** @type {Multiplayer | null} */
@@ -206,6 +207,12 @@ export class Game {
       this.ui.syncSoundSliders(this.audio.getMusicVolumePct(), this.audio.getSfxVolumePct());
       this.ui.showPausePanel('sound');
     });
+    document.getElementById('btn-controls')?.addEventListener('click', () => {
+      this.ui.showPausePanel('controls');
+    });
+    document.getElementById('btn-controls-back')?.addEventListener('click', () => {
+      this.ui.showPausePanel('main');
+    });
     document.getElementById('btn-about').addEventListener('click', () => {
       this.ui.showPausePanel('about');
     });
@@ -241,36 +248,116 @@ export class Game {
     document.getElementById('btn-tilt-enable').addEventListener('click', async () => {
       const ok = await this.input.enableTilt();
       this.ui.hideTiltPrompt();
-      if (ok && this._pendingStageId) {
+      if (!ok) return;
+      if (this._pendingStageId) {
         this.startStage(this._pendingStageId);
         this._pendingStageId = null;
+        return;
       }
+      this.ui.setControlHint(Input.getControlHint());
     });
     document.getElementById('btn-tilt-cancel').addEventListener('click', () => {
       this._pendingStageId = null;
       this.ui.hideTiltPrompt();
     });
+    for (const btn of document.querySelectorAll('.controller-mode-btn')) {
+      btn.addEventListener('click', () => {
+        const mode = btn.getAttribute('data-mode');
+        if (mode !== 'tilt' && mode !== 'thumbpad') return;
+        if (this.ui._controllerPromptCallback) {
+          this._onControllerModeSelected(mode);
+          return;
+        }
+        void this.applyControllerMode(mode);
+      });
+    }
     document.getElementById('btn-hud-pause').addEventListener('click', () => {
       if (this.state === 'playing' || this.state === 'mp-playing') this.pause();
     });
   }
 
   /**
-   * Gate stage start on mobile tilt permission when required (iOS).
+   * Gate stage start on mobile controller choice and tilt permission when required.
    * @param {string} stageId
    */
   async beginStage(stageId) {
-    if (Input.prefersTilt() && Input.canUseTilt()) {
-      if (!this.input.isTiltActive()) {
-        if (Input.needsMotionPermission()) {
-          this._pendingStageId = stageId;
-          this.ui.showTiltPrompt();
-          return;
-        }
-        await this.input.enableTilt();
+    if (Input.prefersTilt()) {
+      if (!Input.isPortrait() && !Input.hasChosenControllerMode()) {
+        this._pendingStageId = stageId;
+        this._controllerBlocked = true;
+        this.ui.showControllerPrompt(null);
+        return;
       }
+      const ready = await this._ensureMobileInputReady(stageId);
+      if (!ready) return;
     }
     this.startStage(stageId);
+  }
+
+  /**
+   * @param {string} stageId
+   * @returns {Promise<boolean>}
+   */
+  async _ensureMobileInputReady(stageId) {
+    if (Input.getControllerMode() === 'thumbpad') {
+      this.input.disableTilt();
+      return true;
+    }
+    if (this.input.isTiltActive()) return true;
+    if (Input.needsMotionPermission()) {
+      this._pendingStageId = stageId;
+      this.ui.showTiltPrompt();
+      return false;
+    }
+    await this.input.enableTilt();
+    return true;
+  }
+
+  /**
+   * @param {'tilt' | 'thumbpad'} mode
+   * @param {boolean} [restoreAudio=true]
+   */
+  async _onControllerModeSelected(mode, restoreAudio = true) {
+    Input.setControllerMode(mode);
+    this.ui.hideControllerPrompt();
+    this._controllerBlocked = false;
+    await this.applyControllerMode(mode);
+    const pending = this._pendingStageId;
+    this._pendingStageId = null;
+    if (pending) {
+      await this.beginStage(pending);
+      return;
+    }
+    if (restoreAudio && (this.state === 'playing' || this.state === 'mp-playing')) {
+      this.clock.getDelta();
+      this.audio.unduck();
+      this.audio.play();
+    }
+  }
+
+  /** @param {'tilt' | 'thumbpad'} mode */
+  async applyControllerMode(mode) {
+    Input.setControllerMode(mode);
+    this.ui.syncControllerModeButtons(mode);
+    if (!Input.prefersTilt()) {
+      this.ui.hideMobileStick();
+      this.ui.setControlHint(Input.getControlHint());
+      return;
+    }
+    if (mode === 'thumbpad') {
+      this.input.disableTilt();
+      this.ui.showMobileStick();
+    } else {
+      this.ui.hideMobileStick();
+      if (!this.input.isTiltActive()) {
+        if (Input.needsMotionPermission()) {
+          this.ui.showTiltPrompt();
+        } else {
+          await this.input.enableTilt();
+        }
+      }
+    }
+    this.ui.setControlHint(Input.getControlHint());
   }
 
   startStage(stageId = this.stage?.id) {
@@ -292,6 +379,11 @@ export class Game {
     this.state = 'playing';
     this.ui.showPlaying(this.stage);
     this.ui.setControlHint(Input.getControlHint());
+    if (Input.prefersTilt() && Input.getControllerMode() === 'thumbpad') {
+      this.ui.showMobileStick();
+    } else {
+      this.ui.hideMobileStick();
+    }
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
@@ -313,6 +405,9 @@ export class Game {
 
   toTitle() {
     this._clearOrientationBlock(false);
+    this._controllerBlocked = false;
+    this.ui.hideControllerPrompt();
+    this.ui.hideMobileStick();
     this.state = 'title';
     this.clearBalls();
     this.collectibles?.clear();
@@ -390,6 +485,11 @@ export class Game {
     this.state = 'mp-playing';
     this.ui.showPlaying(this.stage, { multiplayer: true });
     this.ui.setControlHint(Input.getControlHint());
+    if (Input.prefersTilt() && Input.getControllerMode() === 'thumbpad') {
+      this.ui.showMobileStick();
+    } else {
+      this.ui.hideMobileStick();
+    }
     this.clock.getDelta();
     this.audio.unduck();
     this.audio.play();
@@ -520,6 +620,13 @@ export class Game {
     this._orientationBlocked = false;
     this.ui.hideRotatePrompt();
     this.clock.getDelta();
+
+    if (Input.prefersTilt() && (this.state === 'playing' || this.state === 'mp-playing')) {
+      this._controllerBlocked = true;
+      this.ui.showControllerPrompt(Input.getControllerMode());
+      return;
+    }
+
     if (restoreAudio && (this.state === 'playing' || this.state === 'mp-playing')) {
       this.audio.unduck();
       this.audio.play();
@@ -626,7 +733,7 @@ export class Game {
 
     if (this.state === 'playing' && this.ball) {
       this.updateOrientationGate();
-      if (!this._orientationBlocked) {
+      if (!this._orientationBlocked && !this._controllerBlocked) {
         const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
         this.ball.update(dt, wish);
         this.collectibles.update(dt, this.ball);
@@ -650,7 +757,7 @@ export class Game {
 
     if (this.state === 'mp-playing' && this.mp && this.ball) {
       this.updateOrientationGate();
-      if (!this._orientationBlocked) {
+      if (!this._orientationBlocked && !this._controllerBlocked) {
         const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
         this.mp.update(dt, wish);
         this.followCam.update(dt, this.ball, wish);

@@ -8,6 +8,7 @@ import {
   isGlobalLeaderboardConfigured,
 } from '../lib/globalLeaderboard.js';
 import { setLeaderboardName } from './Progress.js';
+import { Input } from './Input.js';
 
 function escapeHtml(text) {
   return String(text)
@@ -46,7 +47,11 @@ export class UI {
     this.leaderboard = document.getElementById('leaderboard-screen');
     this.tiltPrompt = document.getElementById('tilt-prompt');
     this.rotatePrompt = document.getElementById('rotate-prompt');
+    this.controllerPrompt = document.getElementById('controller-prompt');
+    this.mobileStick = document.getElementById('mobile-stick');
     this.pausePanel = 'main';
+    /** @type {((mode: import('./Input.js').ControllerMode) => void) | null} */
+    this._controllerPromptCallback = null;
     this._eventTimer = 0;
     this._lbTab = 'local';
   }
@@ -62,6 +67,8 @@ export class UI {
     this.leaderboard?.classList.add('hidden');
     this.tiltPrompt?.classList.add('hidden');
     this.rotatePrompt?.classList.add('hidden');
+    this.controllerPrompt?.classList.add('hidden');
+    this.mobileStick?.classList.add('hidden');
     this.hud.classList.add('hidden');
   }
 
@@ -79,6 +86,37 @@ export class UI {
 
   hideRotatePrompt() {
     this.rotatePrompt?.classList.add('hidden');
+  }
+
+  /**
+   * @param {import('./Input.js').ControllerMode | null} currentMode
+   */
+  showControllerPrompt(currentMode) {
+    this.syncControllerModeButtons(currentMode ?? Input.getControllerMode());
+    this._controllerPromptCallback = () => {};
+    this.controllerPrompt?.classList.remove('hidden');
+  }
+
+  hideControllerPrompt() {
+    this.controllerPrompt?.classList.add('hidden');
+    this._controllerPromptCallback = null;
+  }
+
+  /** @param {import('./Input.js').ControllerMode} mode */
+  syncControllerModeButtons(mode) {
+    for (const btn of document.querySelectorAll('.controller-mode-btn')) {
+      const active = btn.getAttribute('data-mode') === mode;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+  }
+
+  showMobileStick() {
+    this.mobileStick?.classList.remove('hidden');
+  }
+
+  hideMobileStick() {
+    this.mobileStick?.classList.add('hidden');
   }
 
   /** @param {string} text */
@@ -374,18 +412,24 @@ export class UI {
   showPause() {
     this.pause.classList.remove('hidden');
     this.showPausePanel('main');
+    const controlsBtn = document.getElementById('btn-controls');
+    controlsBtn?.classList.toggle('hidden', !Input.prefersTilt());
   }
 
   hidePause() {
     this.pause.classList.add('hidden');
   }
 
-  /** @param {'main' | 'sound' | 'about'} panel */
+  /** @param {'main' | 'sound' | 'about' | 'controls'} panel */
   showPausePanel(panel) {
     document.getElementById('pause-main').classList.toggle('hidden', panel !== 'main');
     document.getElementById('pause-sound').classList.toggle('hidden', panel !== 'sound');
     document.getElementById('pause-about').classList.toggle('hidden', panel !== 'about');
+    document.getElementById('pause-controls')?.classList.toggle('hidden', panel !== 'controls');
     this.pausePanel = panel;
+    if (panel === 'controls') {
+      this.syncControllerModeButtons(Input.getControllerMode());
+    }
   }
 
   syncSoundSliders(musicPct, sfxPct) {

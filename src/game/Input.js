@@ -11,9 +11,14 @@ const TILT_DEADZONE = 1.25;
 /** m/s² for full stick deflection. */
 const TILT_MAX = 4.5;
 const TILT_SMOOTH = 0.22;
+const CONTROLLER_MODE_KEY = 'calamari-controller-mode';
+const STICK_RADIUS_PX = 52;
+const STICK_DEADZONE = 0.14;
+
+/** @typedef {'tilt' | 'thumbpad'} ControllerMode */
 
 /**
- * Keyboard + mouse (desktop) or device tilt (mobile) for rolling the calamari.
+ * Keyboard + mouse (desktop) or device tilt / thumb pad (mobile) for rolling the calamari.
  */
 export class Input {
   constructor() {
@@ -28,6 +33,16 @@ export class Input {
     this._motionBound = false;
     this._gravX = 0;
     this._gravY = 0;
+
+    this._stickX = 0;
+    this._stickZ = 0;
+    this._stickPointerId = null;
+    /** @type {HTMLElement | null} */
+    this._stickEl = null;
+    /** @type {HTMLElement | null} */
+    this._stickBase = null;
+    /** @type {HTMLElement | null} */
+    this._stickKnob = null;
 
     this._onMotion = (e) => {
       const g = e.accelerationIncludingGravity;
@@ -63,6 +78,40 @@ export class Input {
       if (!this._pointerActive) return;
       this._setPointerClient(e.clientX, e.clientY);
     };
+    this._onStickDown = (e) => {
+      if (Input.getControllerMode() !== 'thumbpad') return;
+      if (this._stickPointerId != null) return;
+      e.preventDefault();
+      this._stickPointerId = e.pointerId;
+      this._stickBase?.setPointerCapture(e.pointerId);
+      this._updateStickFromClient(e.clientX, e.clientY);
+    };
+    this._onStickMove = (e) => {
+      if (e.pointerId !== this._stickPointerId) return;
+      e.preventDefault();
+      this._updateStickFromClient(e.clientX, e.clientY);
+    };
+    this._onStickUp = (e) => {
+      if (e.pointerId !== this._stickPointerId) return;
+      this._resetStick();
+    };
+  }
+
+  /** @returns {ControllerMode} */
+  static getControllerMode() {
+    const stored = localStorage.getItem(CONTROLLER_MODE_KEY);
+    if (stored === 'thumbpad' || stored === 'tilt') return stored;
+    return 'tilt';
+  }
+
+  /** @param {ControllerMode} mode */
+  static setControllerMode(mode) {
+    localStorage.setItem(CONTROLLER_MODE_KEY, mode);
+  }
+
+  /** @returns {boolean} */
+  static hasChosenControllerMode() {
+    return localStorage.getItem(CONTROLLER_MODE_KEY) != null;
   }
 
   /** @returns {boolean} */
@@ -106,6 +155,9 @@ export class Input {
 
   static getControlHint() {
     if (Input.prefersTilt()) {
+      if (Input.getControllerMode() === 'thumbpad') {
+        return 'Thumb pad bottom-left · ☰ pause · change controls in pause menu';
+      }
       return 'Lay phone flat like a marble tray · tilt in landscape to roll · ☰ pause';
     }
     return 'Click / hold to roll toward cursor · WASD · scroll zoom · Esc pause';
@@ -126,6 +178,9 @@ export class Input {
 
   init() {
     this._canvas = document.getElementById('game-canvas');
+    this._stickEl = document.getElementById('mobile-stick');
+    this._stickBase = this._stickEl?.querySelector('.mobile-stick-base') ?? null;
+    this._stickKnob = this._stickEl?.querySelector('.mobile-stick-knob') ?? null;
 
     window.addEventListener('keydown', this._onDown);
     window.addEventListener('keyup', this._onUp);
@@ -137,10 +192,18 @@ export class Input {
     window.addEventListener('mouseup', this._onPointerUp);
     this._canvas.addEventListener('mousemove', this._onPointerMove);
     this._canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    if (this._stickBase) {
+      this._stickBase.addEventListener('pointerdown', this._onStickDown);
+      this._stickBase.addEventListener('pointermove', this._onStickMove);
+      this._stickBase.addEventListener('pointerup', this._onStickUp);
+      this._stickBase.addEventListener('pointercancel', this._onStickUp);
+    }
   }
 
   dispose() {
     this.disableTilt();
+    this._resetStick();
     window.removeEventListener('keydown', this._onDown);
     window.removeEventListener('keyup', this._onUp);
     window.removeEventListener('blur', this._onBlur);
@@ -150,11 +213,21 @@ export class Input {
       this._canvas.removeEventListener('mousedown', this._onPointerDown);
       this._canvas.removeEventListener('mousemove', this._onPointerMove);
     }
+    if (this._stickBase) {
+      this._stickBase.removeEventListener('pointerdown', this._onStickDown);
+      this._stickBase.removeEventListener('pointermove', this._onStickMove);
+      this._stickBase.removeEventListener('pointerup', this._onStickUp);
+      this._stickBase.removeEventListener('pointercancel', this._onStickUp);
+    }
     this._canvas = null;
+    this._stickEl = null;
+    this._stickBase = null;
+    this._stickKnob = null;
   }
 
   clearPointer() {
     this._pointerActive = false;
+    this._resetStick();
   }
 
   /** @returns {boolean} */
@@ -264,6 +337,51 @@ export class Input {
     return this._gravityToWish();
   }
 
+  /** @returns {{ x: number, z: number }} camera-relative thumb-pad wish */
+  getStickMoveVector() {
+    return { x: this._stickX, z: this._stickZ };
+  }
+
+  _resetStick() {
+    this._stickPointerId = null;
+    this._stickX = 0;
+    this._stickZ = 0;
+    if (this._stickKnob) {
+      this._stickKnob.style.transform = 'translate(-50%, -50%)';
+    }
+  }
+
+  /** @param {number} clientX @param {number} clientY */
+  _updateStickFromClient(clientX, clientY) {
+    if (!this._stickBase) return;
+
+    const rect = this._stickBase.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = clientX - cx;
+    const dy = clientY - cy;
+    const dist = Math.hypot(dx, dy);
+    const clamped = Math.min(dist, STICK_RADIUS_PX);
+    const nx = dist > 0 ? (dx / dist) * (clamped / STICK_RADIUS_PX) : 0;
+    const ny = dist > 0 ? (dy / dist) * (clamped / STICK_RADIUS_PX) : 0;
+    const len = Math.hypot(nx, ny);
+
+    if (len < STICK_DEADZONE) {
+      this._stickX = 0;
+      this._stickZ = 0;
+    } else {
+      const strength = Math.min(1, (len - STICK_DEADZONE) / (1 - STICK_DEADZONE));
+      this._stickX = (nx / len) * strength;
+      this._stickZ = (ny / len) * strength;
+    }
+
+    if (this._stickKnob) {
+      const knobX = dist > 0 ? (dx / dist) * clamped : 0;
+      const knobY = dist > 0 ? (dy / dist) * clamped : 0;
+      this._stickKnob.style.transform = `translate(calc(-50% + ${knobX}px), calc(-50% + ${knobY}px))`;
+    }
+  }
+
   /**
    * World-space roll direction toward the active mouse pointer on the ground plane.
    * @param {THREE.PerspectiveCamera} camera
@@ -301,6 +419,15 @@ export class Input {
     if (!Input.prefersTilt()) {
       const pointer = this.getPointerWorldWish(camera, ball);
       if (pointer) return pointer;
+      return followCam.wishToWorld(this.getMoveVector());
+    }
+
+    if (Input.getControllerMode() === 'thumbpad') {
+      const stick = this.getStickMoveVector();
+      if (stick.x !== 0 || stick.z !== 0) {
+        return followCam.wishToWorld(stick);
+      }
+      return { x: 0, z: 0 };
     }
 
     if (this._tiltActive) {
@@ -310,7 +437,7 @@ export class Input {
       }
     }
 
-    return followCam.wishToWorld(this.getMoveVector());
+    return { x: 0, z: 0 };
   }
 
   isEscapePressed() {
