@@ -108,7 +108,7 @@ export class Input {
 
   static getControlHint() {
     if (Input.prefersTilt()) {
-      return 'Tilt phone to roll · hold level at stage start';
+      return 'Tilt phone to roll · hold level in landscape at stage start';
     }
     return 'Click / hold to roll toward cursor · WASD · scroll zoom · Esc pause';
   }
@@ -216,24 +216,29 @@ export class Input {
     this._calibSamples = [];
   }
 
+  /** Screen rotation in degrees (0 portrait, 90/270 landscape). */
+  _screenAngleDeg() {
+    const raw = screen.orientation?.angle ?? window.orientation ?? 0;
+    return ((raw % 360) + 360) % 360;
+  }
+
   /**
    * Map device gravity delta to camera-relative wish.
-   * Phone portrait: x = roll left/right, y = pitch forward/back.
+   * Device axes are portrait-fixed on Android; rotate into screen space, then
+   * map screen tilt to roll (marble-on-a-tray: lean edge down → roll that way).
    */
   _gravityToWish() {
-    let dx = this._gravX - this._neutralGravX;
-    let dy = this._gravY - this._neutralGravY;
+    const dx = this._gravX - this._neutralGravX;
+    const dy = this._gravY - this._neutralGravY;
 
-    const angleDeg = screen.orientation?.angle ?? window.orientation ?? 0;
-    const rad = (-angleDeg * Math.PI) / 180;
+    const rad = (-this._screenAngleDeg() * Math.PI) / 180;
     const cos = Math.cos(rad);
     const sin = Math.sin(rad);
-    const rx = dx * cos - dy * sin;
-    const ry = dx * sin + dy * cos;
+    const sx = dx * cos - dy * sin;
+    const sy = dx * sin + dy * cos;
 
-    // Tune signs for "lean phone → roll ball that way" in portrait.
-    let x = -rx;
-    let z = ry;
+    const x = sx;
+    const z = -sy;
 
     const len = Math.hypot(x, z);
     if (len < TILT_DEADZONE) return { x: 0, z: 0 };
