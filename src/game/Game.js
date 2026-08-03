@@ -20,6 +20,7 @@ import { Multiplayer } from './Multiplayer.js';
 import { initDevPanel } from '../dev/DevPanel.js';
 import { trySubmitGlobalClear } from '../lib/globalLeaderboard.js';
 import { discordDisplayName } from '../discord/setupDiscordSdk.js';
+import { isDiscordEmbedded } from '../discord/discordEnv.js';
 
 /** @typedef {'title' | 'playing' | 'paused' | 'mp-paused' | 'result' | 'present' | 'cosmos' | 'leaderboard' | 'lobby' | 'mp-playing' | 'mp-result'} GameState */
 
@@ -97,17 +98,12 @@ export class Game {
     this.stage = this.stages[0];
     this.objectTypes = objectsData.types;
 
-    this.setupRenderer();
-    this.setupScene();
     this.input.init();
-    this.world = new World(this);
-    this.collectibles = new Collectibles(this);
-    this.followCam = new FollowCamera(this);
-    this.followCam.init();
     this.audio.init();
 
     this.bindUi();
     this.ui.syncSoundSliders(this.audio.getMusicVolumePct(), this.audio.getSfxVolumePct());
+    this.setCanvasVisible(false);
     this.ui.showTitle();
 
     initDevPanel({
@@ -133,22 +129,53 @@ export class Game {
     this.animate();
   }
 
+  /** Create WebGL + scene graph on first play (keeps title/menus HTML-only in Discord). */
+  ensurePlayStack() {
+    if (this.renderer) return;
+
+    this.setupRenderer();
+    this.setupScene();
+    this.world = new World(this);
+    this.collectibles = new Collectibles(this);
+    this.followCam = new FollowCamera(this);
+    this.followCam.init();
+    this.setCanvasVisible(true);
+    this.onResize();
+  }
+
+  /** @param {boolean} visible */
+  setCanvasVisible(visible) {
+    const canvas = document.getElementById('game-canvas');
+    if (!canvas) return;
+    canvas.classList.toggle('is-playing', visible);
+    canvas.classList.toggle('canvas-hidden', !visible);
+    if (visible) {
+      canvas.removeAttribute('hidden');
+    } else {
+      canvas.setAttribute('hidden', '');
+    }
+  }
+
   setupRenderer() {
     const canvas = document.getElementById('game-canvas');
+    const embedded = isDiscordEmbedded();
     const base = {
       canvas,
       failIfMajorPerformanceCaveat: false,
-      powerPreference: 'default',
+      powerPreference: embedded ? 'low-power' : 'default',
+      alpha: embedded,
     };
     try {
-      this.renderer = new THREE.WebGLRenderer({ ...base, antialias: true });
+      this.renderer = new THREE.WebGLRenderer({ ...base, antialias: !embedded });
     } catch {
       this.renderer = new THREE.WebGLRenderer({ ...base, antialias: false });
     }
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, embedded ? 1.25 : 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.enabled = !embedded;
+    if (!embedded) {
+      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    }
   }
 
   setupScene() {
@@ -391,6 +418,7 @@ export class Game {
     const stage = this.stages.find((s) => s.id === stageId) ?? this.stages[0];
     if (!isStageUnlocked(this.stages, this.progress, stage.id)) return;
 
+    this.ensurePlayStack();
     this.stage = stage;
     this.ensureWorld();
     this.world.buildStage(this.stage);
@@ -438,11 +466,17 @@ export class Game {
     this.state = 'title';
     this.clearBalls();
     this.collectibles?.clear();
+    this.setCanvasVisible(false);
     this.ui.showTitle();
     this.audio.stop();
   }
 
   clearBalls() {
+    if (!this.scene) {
+      this.ball = null;
+      this.mpBalls = [];
+      return;
+    }
     if (this.ball) {
       this.scene.remove(this.ball.group);
       this.ball = null;
@@ -456,6 +490,7 @@ export class Game {
   openMultiplayer() {
     this.clearBalls();
     this.collectibles?.clear();
+    this.setCanvasVisible(false);
     this.mp = new Multiplayer(this);
     this.state = 'lobby';
     this.ui.showMpMenu();
@@ -482,6 +517,7 @@ export class Game {
    * @param {{ id: string, name: string, color: number }[]} players
    */
   beginMultiplayerStage(stage, players) {
+    this.ensurePlayStack();
     this.stage = stage;
     this.ensureWorld();
     this.world.buildStage(this.stage);
@@ -566,6 +602,7 @@ export class Game {
     this.state = 'cosmos';
     this.clearBalls();
     this.collectibles?.clear();
+    this.setCanvasVisible(false);
     this.ui.showCosmos(
       this.stages,
       this.progress,
@@ -583,6 +620,7 @@ export class Game {
     this.state = 'leaderboard';
     this.clearBalls();
     this.collectibles?.clear();
+    this.setCanvasVisible(false);
     this.ui.showLeaderboard(this.progress, (next) => {
       this.progress = next;
     });
@@ -736,6 +774,7 @@ export class Game {
   }
 
   onResize() {
+    if (!this.renderer || !this.camera) return;
     const w = window.innerWidth;
     const h = window.innerHeight;
     this.camera.aspect = w / h;
@@ -805,6 +844,8 @@ export class Game {
       this.mp.update(dt, { x: 0, z: 0 });
     }
 
-    this.renderer.render(this.scene, this.camera);
+    if (this.renderer && this.scene && this.camera) {
+      this.renderer.render(this.scene, this.camera);
+    }
   };
 }

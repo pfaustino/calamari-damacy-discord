@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "node scripts/sync-css.mjs && vite",
     "dev:server": "npm --prefix server run dev",
     "dev:discord": "concurrently -k \"npm run dev:server\" \"npm run dev\"",
-    "build": "vite build",
+    "build": "node scripts/sync-css.mjs && vite build",
     "preview": "vite preview",
     "smoke": "node scripts/smoke-check.mjs",
     "check": "npm run smoke && npm run build",

@@ -1,13 +1,16 @@
-import { setupDiscordSdk } from './discord/setupDiscordSdk.js';
-import { Game } from './game/Game.js';
+import '../css/style.css';
 
 const DISCORD_SETUP_MS = 12_000;
 
 function hideBootSplash() {
-  document.getElementById('boot-splash')?.remove();
+  document.getElementById('boot-splash')?.classList.add('hidden');
 }
 
 function showBootError(message) {
+  if (typeof window.__showBootError === 'function') {
+    window.__showBootError(message);
+    return;
+  }
   hideBootSplash();
   const el = document.getElementById('boot-error');
   if (!el) return;
@@ -30,27 +33,47 @@ function withTimeout(promise, ms) {
 }
 
 async function boot() {
-  const game = new Game({ discord: null });
+  let isDiscordEmbedded = () => /discordsays\.com$/i.test(window.location.hostname);
 
   try {
-    game.init();
-    hideBootSplash();
+    const discordMod = await import('./discord/setupDiscordSdk.js');
+    isDiscordEmbedded = discordMod.isDiscordEmbedded;
+    if (isDiscordEmbedded()) {
+      document.documentElement.classList.add('discord-embedded');
+    }
+
+    const { Game } = await import('./game/Game.js');
+    const game = new Game({ discord: null });
+
+    try {
+      game.init();
+      hideBootSplash();
+      window.__calamariBooted = true;
+      if (isDiscordEmbedded()) {
+        requestAnimationFrame(() => {
+          game.onResize();
+          setTimeout(() => game.onResize(), 400);
+        });
+      }
+    } catch (err) {
+      console.error('Failed to start Calamari Damacy', err);
+      showBootError('Could not start the game. Try refreshing the Activity.');
+      return;
+    }
+
+    window.__game = game;
+
+    withTimeout(discordMod.setupDiscordSdk(), DISCORD_SETUP_MS)
+      .then((discord) => {
+        if (discord) game.applyDiscord(discord);
+      })
+      .catch((err) => {
+        console.warn('Discord SDK setup skipped or failed:', err);
+      });
   } catch (err) {
-    console.error('Failed to start Calamari Damacy', err);
-    showBootError('Could not start the game. Try refreshing the Activity.');
-    return;
+    console.error('Failed to load game modules', err);
+    showBootError('Could not load game files. Force-quit Discord and reopen the Activity.');
   }
-
-  window.__game = game;
-
-  // Never block the title screen on Discord OAuth — finish auth in the background.
-  withTimeout(setupDiscordSdk(), DISCORD_SETUP_MS)
-    .then((discord) => {
-      if (discord) game.applyDiscord(discord);
-    })
-    .catch((err) => {
-      console.warn('Discord SDK setup skipped or failed:', err);
-    });
 }
 
 boot();
