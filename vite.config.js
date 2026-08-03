@@ -9,6 +9,14 @@ export default defineConfig(({ command }) => ({
   base:
     process.env.VITE_BASE_PATH ??
     (command === 'serve' ? '/' : pagesBase),
+  plugins: [
+    {
+      name: 'strip-crossorigin',
+      transformIndexHtml(html) {
+        return html.replace(/\s+crossorigin/g, '');
+      },
+    },
+  ],
   server: {
     port: 5174,
     strictPort: true,

@@ -1,5 +1,6 @@
 import '../css/style.css';
-import { setupDiscordSdk, isDiscordEmbedded } from './discord/setupDiscordSdk.js';
+import { setupDiscordSdk } from './discord/setupDiscordSdk.js';
+import { isDiscordEmbedded } from './discord/discordEnv.js';
 import { Game } from './game/Game.js';
 
 const DISCORD_SETUP_MS = 12_000;
@@ -25,9 +26,15 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-function boot() {
-  const game = new Game({ discord: null });
+async function boot() {
+  let discord = null;
+  try {
+    discord = await withTimeout(setupDiscordSdk(), DISCORD_SETUP_MS);
+  } catch (err) {
+    console.warn('Discord SDK setup skipped or failed:', err);
+  }
 
+  const game = new Game({ discord });
   try {
     game.init();
     if (isDiscordEmbedded()) {
@@ -43,14 +50,6 @@ function boot() {
   }
 
   window.__game = game;
-
-  withTimeout(setupDiscordSdk(), DISCORD_SETUP_MS)
-    .then((discord) => {
-      if (discord) game.applyDiscord(discord);
-    })
-    .catch((err) => {
-      console.warn('Discord SDK setup skipped or failed:', err);
-    });
 }
 
 boot();
