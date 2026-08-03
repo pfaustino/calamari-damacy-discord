@@ -31,5 +31,6 @@ export default defineConfig(({ command }) => ({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    modulePreload: false,
   },
 }));

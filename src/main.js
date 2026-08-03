@@ -3,7 +3,8 @@ import '../css/style.css';
 const DISCORD_SETUP_MS = 12_000;
 
 function hideBootSplash() {
-  document.getElementById('boot-splash')?.classList.add('hidden');
+  const el = document.getElementById('boot-splash');
+  if (el) el.style.display = 'none';
 }
 
 function showBootError(message) {
@@ -33,6 +34,7 @@ function withTimeout(promise, ms) {
 }
 
 async function boot() {
+  window.__discordProbeLog?.('main boot');
   let isDiscordEmbedded = () => /discordsays\.com$/i.test(window.location.hostname);
 
   try {
@@ -43,12 +45,14 @@ async function boot() {
     }
 
     const { Game } = await import('./game/Game.js');
+    window.__discordProbeLog?.('game module ok');
     const game = new Game({ discord: null });
 
     try {
       game.init();
       hideBootSplash();
       window.__calamariBooted = true;
+      window.__discordProbeLog?.('game init ok');
       if (isDiscordEmbedded()) {
         requestAnimationFrame(() => {
           game.onResize();

@@ -151,8 +151,10 @@ export class Game {
     canvas.classList.toggle('canvas-hidden', !visible);
     if (visible) {
       canvas.removeAttribute('hidden');
+      canvas.style.display = 'block';
     } else {
       canvas.setAttribute('hidden', '');
+      canvas.style.display = 'none';
     }
   }
 
