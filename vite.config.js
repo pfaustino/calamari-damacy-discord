@@ -32,5 +32,12 @@ export default defineConfig(({ command }) => ({
     outDir: 'dist',
     emptyOutDir: true,
     modulePreload: false,
+    cssCodeSplit: false,
+    rollupOptions: {
+      output: {
+        inlineDynamicImports: true,
+        manualChunks: undefined,
+      },
+    },
   },
 }));

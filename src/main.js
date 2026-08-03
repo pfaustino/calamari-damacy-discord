@@ -1,4 +1,9 @@
+import { armDiscordProbe, dismissHtmlSmokeTest } from './discord/discordBootProbe.js';
+import { setupDiscordSdk, isDiscordEmbedded } from './discord/setupDiscordSdk.js';
+import { Game } from './game/Game.js';
 import '../css/style.css';
+
+armDiscordProbe();
 
 const DISCORD_SETUP_MS = 12_000;
 
@@ -16,7 +21,7 @@ function showBootError(message) {
   const el = document.getElementById('boot-error');
   if (!el) return;
   el.textContent = message;
-  el.classList.remove('hidden');
+  el.style.display = 'flex';
 }
 
 /**
@@ -33,51 +38,38 @@ function withTimeout(promise, ms) {
   ]);
 }
 
-async function boot() {
+function boot() {
   window.__discordProbeLog?.('main boot');
-  let isDiscordEmbedded = () => /discordsays\.com$/i.test(window.location.hostname);
+
+  const game = new Game({ discord: null });
 
   try {
-    const discordMod = await import('./discord/setupDiscordSdk.js');
-    isDiscordEmbedded = discordMod.isDiscordEmbedded;
+    game.init();
+    hideBootSplash();
+    dismissHtmlSmokeTest();
+    window.__calamariBooted = true;
+    window.__discordProbeLog?.('game init ok');
     if (isDiscordEmbedded()) {
-      document.documentElement.classList.add('discord-embedded');
-    }
-
-    const { Game } = await import('./game/Game.js');
-    window.__discordProbeLog?.('game module ok');
-    const game = new Game({ discord: null });
-
-    try {
-      game.init();
-      hideBootSplash();
-      window.__calamariBooted = true;
-      window.__discordProbeLog?.('game init ok');
-      if (isDiscordEmbedded()) {
-        requestAnimationFrame(() => {
-          game.onResize();
-          setTimeout(() => game.onResize(), 400);
-        });
-      }
-    } catch (err) {
-      console.error('Failed to start Calamari Damacy', err);
-      showBootError('Could not start the game. Try refreshing the Activity.');
-      return;
-    }
-
-    window.__game = game;
-
-    withTimeout(discordMod.setupDiscordSdk(), DISCORD_SETUP_MS)
-      .then((discord) => {
-        if (discord) game.applyDiscord(discord);
-      })
-      .catch((err) => {
-        console.warn('Discord SDK setup skipped or failed:', err);
+      requestAnimationFrame(() => {
+        game.onResize();
+        setTimeout(() => game.onResize(), 400);
       });
+    }
   } catch (err) {
-    console.error('Failed to load game modules', err);
-    showBootError('Could not load game files. Force-quit Discord and reopen the Activity.');
+    console.error('Failed to start Calamari Damacy', err);
+    showBootError('Could not start the game. Try refreshing the Activity.');
+    return;
   }
+
+  window.__game = game;
+
+  withTimeout(setupDiscordSdk(), DISCORD_SETUP_MS)
+    .then((discord) => {
+      if (discord) game.applyDiscord(discord);
+    })
+    .catch((err) => {
+      console.warn('Discord SDK setup skipped or failed:', err);
+    });
 }
 
 boot();
