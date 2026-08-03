@@ -1,28 +1,9 @@
-import { DiscordSDK, patchUrlMappings } from '@discord/embedded-app-sdk';
+import { DiscordSDK } from '@discord/embedded-app-sdk';
 import { isDiscordEmbedded } from './discordEnv.js';
-import { getDiscordSdk } from './discordReady.js';
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID ?? '';
 
 export { isDiscordEmbedded };
-
-/** Remap direct leaderboard API fetches through Discord's /.proxy/ tunnel. */
-function patchLeaderboardUrlMappings() {
-  const apiBase = (
-    import.meta.env.VITE_LEADERBOARD_API || 'https://leaderboards-opal.vercel.app'
-  ).replace(/\/$/, '');
-  let host;
-  try {
-    host = new URL(apiBase).host;
-  } catch {
-    return;
-  }
-  try {
-    patchUrlMappings([{ prefix: '/.proxy/leaderboards', target: host }]);
-  } catch (err) {
-    console.warn('Leaderboard URL mapping failed:', err);
-  }
-}
 
 function tokenUrl() {
   return isDiscordEmbedded() ? '/.proxy/api/token' : '/api/token';
@@ -37,11 +18,8 @@ export async function setupDiscordSdk() {
     return null;
   }
 
-  const discordSdk = getDiscordSdk() ?? new DiscordSDK(CLIENT_ID);
-  if (!getDiscordSdk()) {
-    await discordSdk.ready();
-  }
-  patchLeaderboardUrlMappings();
+  const discordSdk = new DiscordSDK(CLIENT_ID);
+  await discordSdk.ready();
 
   const { code } = await discordSdk.commands.authorize({
     client_id: CLIENT_ID,
