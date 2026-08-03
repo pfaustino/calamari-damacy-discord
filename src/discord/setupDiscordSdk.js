@@ -1,5 +1,6 @@
 import { DiscordSDK, patchUrlMappings } from '@discord/embedded-app-sdk';
 import { isDiscordEmbedded } from './discordEnv.js';
+import { getDiscordSdk } from './discordReady.js';
 
 const CLIENT_ID = import.meta.env.VITE_DISCORD_CLIENT_ID ?? '';
 
@@ -36,8 +37,10 @@ export async function setupDiscordSdk() {
     return null;
   }
 
-  const discordSdk = new DiscordSDK(CLIENT_ID);
-  await discordSdk.ready();
+  const discordSdk = getDiscordSdk() ?? new DiscordSDK(CLIENT_ID);
+  if (!getDiscordSdk()) {
+    await discordSdk.ready();
+  }
   patchLeaderboardUrlMappings();
 
   const { code } = await discordSdk.commands.authorize({

@@ -4,13 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Calamari Damacy</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Nunito:wght@600;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
-<body style="margin:0;min-height:100dvh;background:#0a3d5c;color:#f0f7fa;font-family:system-ui,sans-serif;overflow:hidden;">
-  <div id="html-smoke-test" style="position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:#ffe600;color:#000;font:bold 22px system-ui,sans-serif;text-align:center;padding:1rem;">HTML OK — build v4</div>
-  <div id="boot-splash" class="boot-splash" style="position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:#0a3d5c;color:#f0f7fa;text-align:center;padding:1.5rem;font-family:system-ui,sans-serif;">Loading Calamari Damacy…</div>
-  <div id="boot-error" class="boot-error hidden" style="position:fixed;inset:0;z-index:99999;display:none;align-items:center;justify-content:center;background:#0a3d5c;color:#ffb4b4;text-align:center;padding:1.5rem;font-family:system-ui,sans-serif;"></div>
-  <div id="game-root" style="position:relative;width:100%;min-height:100dvh;">
-    <canvas id="game-canvas" hidden style="display:none;position:absolute;inset:0;z-index:1;"></canvas>
+<body>
+  <div id="boot-error" class="boot-error hidden"></div>
+  <div id="game-root">
+    <canvas id="game-canvas" hidden></canvas>
 
     <div id="hud" class="hidden" aria-live="polite">
       <div class="hud-top">
@@ -75,13 +77,13 @@
       </div>
     </div>
 
-    <div id="title-screen" class="overlay" style="position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center;padding:1.5rem;box-sizing:border-box;background:linear-gradient(165deg,#0a4a6e 0%,#062838 45%,#0d2137 100%);color:#f0f7fa;text-align:center;font-family:system-ui,sans-serif;">
+    <div id="title-screen" class="overlay">
       <div class="overlay-panel">
         <p class="eyebrow">We ♡ Rolling</p>
-        <h1 class="brand" style="font-size:2rem;margin:0.25rem 0 0.75rem;">Calamari Damacy</h1>
+        <h1 class="brand">Calamari Damacy</h1>
         <p class="tagline">Roll up the ocean floor. Grow your sticky squid-ball. Hang new stars for the King of the Cosmos.</p>
         <div class="cta-row">
-          <button type="button" id="btn-play" class="btn primary" style="font:inherit;cursor:pointer;border:none;border-radius:999px;padding:0.75rem 1.25rem;margin:0.25rem;background:#ffd166;color:#0d2137;font-weight:700;">Start Rolling</button>
+          <button type="button" id="btn-play" class="btn primary">Start Rolling</button>
           <button type="button" id="btn-title-cosmos" class="btn">The Cosmos</button>
           <button type="button" id="btn-leaderboard" class="btn">Leaderboard</button>
           <button type="button" id="btn-mp" class="btn">Multiplayer</button>
