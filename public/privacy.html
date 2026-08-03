@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — Calamari Damacy</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 2rem 1rem 4rem;
+      background: #0a3d5c;
+      color: #f0f7fa;
+      font-family: 'Nunito', system-ui, sans-serif;
+      line-height: 1.6;
+    }
+    main { max-width: 720px; margin: 0 auto; }
+    h1 { color: #ffd166; }
+    h2 { color: #7ec8c8; margin-top: 2rem; }
+    a { color: #ffd166; }
+    .updated { opacity: 0.7; font-size: 0.9rem; }
+    table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid rgba(240, 247, 250, 0.2); }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Privacy Policy</h1>
+    <p class="updated">Last updated: August 3, 2026</p>
+
+    <p>This Privacy Policy explains what information <strong>Calamari Damacy</strong> (the "Game") collects and how it is used. The Game is playable in a web browser and as a Discord Activity.</p>
+
+    <h2>1. Information We Collect</h2>
+    <table>
+      <tr><th>Data</th><th>When</th><th>Why</th></tr>
+      <tr>
+        <td>Discord username, display name, and user ID</td>
+        <td>Playing as a Discord Activity (via Discord OAuth with the <code>identify</code> scope)</td>
+        <td>To pre-fill your leaderboard and multiplayer name</td>
+      </tr>
+      <tr>
+        <td>Leaderboard name and scores (size, stage, object count, run time)</td>
+        <td>When you submit a score</td>
+        <td>Displayed on the public global leaderboard</td>
+      </tr>
+      <tr>
+        <td>Game progress and settings</td>
+        <td>While playing</td>
+        <td>Stored only in your browser's local storage (never sent to a server)</td>
+      </tr>
+      <tr>
+        <td>Multiplayer name and gameplay inputs</td>
+        <td>During multiplayer matches</td>
+        <td>Relayed transiently between players; not stored after the session</td>
+      </tr>
+    </table>
+
+    <h2>2. What We Do Not Collect</h2>
+    <ul>
+      <li>No email addresses, passwords, or payment information</li>
+      <li>No advertising identifiers or cross-site tracking</li>
+      <li>No selling or sharing of personal data with third parties</li>
+    </ul>
+
+    <h2>3. Public Information</h2>
+    <p>Leaderboard entries (name and score details) are publicly visible to all players. Do not use a name you wish to keep private. You may request removal of a leaderboard entry via the contact below.</p>
+
+    <h2>4. Third-Party Services</h2>
+    <ul>
+      <li><strong>Discord</strong> — authentication inside the Activity (<a href="https://discord.com/privacy" rel="noopener noreferrer">Discord Privacy Policy</a>)</li>
+      <li><strong>Vercel</strong> — hosts the Game and leaderboard API (standard server logs)</li>
+      <li><strong>Railway</strong> — hosts the multiplayer relay (transient connection data)</li>
+      <li><strong>Google Fonts</strong> — font delivery in the browser version</li>
+    </ul>
+
+    <h2>5. Data Retention</h2>
+    <p>Leaderboard entries are kept until removed or until leaderboards are reset. Local progress lives in your browser and can be cleared by clearing site data. Multiplayer session data is discarded when the session ends.</p>
+
+    <h2>6. Children</h2>
+    <p>The Game does not knowingly collect personal information from children. Score submission requires only a self-chosen display name.</p>
+
+    <h2>7. Changes</h2>
+    <p>We may update this policy from time to time. The "Last updated" date above reflects the latest revision.</p>
+
+    <h2>8. Contact</h2>
+    <p>Privacy questions or removal requests: open an issue on <a href="https://github.com/pfaustino/calamari-damacy-discord" rel="noopener noreferrer">GitHub</a>.</p>
+
+    <p><a href="/terms">Terms of Service</a> · <a href="/">Back to the game</a></p>
+  </main>
+</body>
+</html>
