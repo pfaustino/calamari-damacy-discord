@@ -10,7 +10,8 @@
     "build": "node scripts/sync-css.mjs && vite build",
     "preview": "vite preview",
     "smoke": "node scripts/smoke-check.mjs",
-    "check": "npm run smoke && npm run build",
+    "check": "npm run test && npm run smoke && npm run build",
+    "test": "node --test tests/**/*.test.js",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed"
   },

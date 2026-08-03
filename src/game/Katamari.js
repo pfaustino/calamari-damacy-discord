@@ -1,4 +1,9 @@
 import * as THREE from 'three';
+import {
+  computeScatterCount,
+  pickScatterIndices,
+  scatterSpreadAngle,
+} from './collisionPhysics.js';
 
 /** Proportional volume units (4/3π cancels) — radius = ∛volume. */
 function volumeFromRadius(r) {
@@ -479,35 +484,28 @@ export class Katamari {
 
   /**
    * Knock loose stickies that are still mostly solid (melt &lt; 50%).
-   * Faster impact → more pieces. Flies up to 5× ball radius.
-   * @param {number} impact closing speed along collision normal
+   * Shed count scales with this ball's Δv = J / collisionMass (impulse-based).
+   * @param {number} deltaV speed change this ball received from the collision
    * @param {number} awayNx outward X (away from other ball)
    * @param {number} awayNz outward Z
    * @returns {{ typeId: string, propId: number, x: number, z: number, vx: number, vz: number, mesh: THREE.Object3D, typeSize: number }[]}
    */
-  scatterOnImpact(impact, awayNx, awayNz) {
+  scatterOnImpact(deltaV, awayNx, awayNz) {
+    const tuning = this.game.tuning;
     const eligible = [];
     for (let i = 0; i < this.stuck.length; i++) {
-      // Still under halfway melted → can scatter; half-melted+ are immune
       if (this.stuck[i].melt < 0.5) eligible.push(i);
     }
-    if (eligible.length === 0 || impact < 1.2) return [];
 
-    const strength = Math.min(1, Math.max(0, (impact - 1.2) / 7));
-    let count = Math.round(eligible.length * strength);
-    if (strength > 0.12 && count < 1) count = 1;
-    count = Math.min(count, eligible.length);
+    const count = computeScatterCount(eligible.length, deltaV, tuning);
     if (count <= 0) return [];
 
-    // Fisher–Yates pick of indices (highest index first when splicing)
-    for (let i = eligible.length - 1; i > 0; i--) {
-      const j = (Math.random() * (i + 1)) | 0;
-      const tmp = eligible[i];
-      eligible[i] = eligible[j];
-      eligible[j] = tmp;
-    }
-    const pick = eligible.slice(0, count).sort((a, b) => b - a);
-    const maxDist = this.radius * 5;
+    const candidates = eligible.map((i) => ({
+      melt: this.stuck[i].melt,
+      propId: this.stuck[i].propId,
+    }));
+    const pick = pickScatterIndices(candidates, count).sort((a, b) => b - a);
+
     const out = [];
     const len = Math.hypot(awayNx, awayNz) || 1;
     const basex = awayNx / len;
@@ -528,13 +526,12 @@ export class Katamari {
         this.massCollected = Math.max(0, this.massCollected - s.mass);
       }
 
-      const spread = (Math.random() - 0.5) * Math.PI * 0.95;
+      const spread = scatterSpreadAngle(s.propId);
       const cx = Math.cos(spread);
       const cz = Math.sin(spread);
       const dx = basex * cx - basez * cz;
       const dz = basex * cz + basez * cx;
-      const fly = (0.35 + 0.65 * Math.random()) * maxDist * (0.4 + 0.6 * strength);
-      const speed = (2.2 + impact * 0.85) * (0.55 + 0.45 * Math.random());
+      const speed = 2 + deltaV * 0.9;
       const x = this.position.x + dx * (this.radius + s.size * 0.5 + 0.15);
       const z = this.position.z + dz * (this.radius + s.size * 0.5 + 0.15);
       mesh.position.set(x, s.size * 0.35, z);

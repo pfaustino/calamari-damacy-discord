@@ -1,4 +1,9 @@
 import { NetSession, MP_COLORS, MAX_PLAYERS } from './NetSession.js';
+import {
+  computeImpulseMagnitude,
+  computeDeltaV,
+  computeStealVolume,
+} from './collisionPhysics.js';
 
 const VOTE_SECONDS = 15;
 const VOTE_CHOICES = ['same', 'next', 'pause', 'leave'];
@@ -463,8 +468,9 @@ export class Multiplayer {
         const rvx = a.velocity.x - b.velocity.x;
         const rvz = a.velocity.z - b.velocity.z;
         const velAlong = rvx * nx + rvz * nz;
+        let jImp = 0;
         if (velAlong > 0) {
-          const jImp = ((1 + e) * velAlong) / inv;
+          jImp = computeImpulseMagnitude(velAlong, mA, mB, e);
           a.velocity.x -= (jImp / mA) * nx;
           a.velocity.z -= (jImp / mA) * nz;
           b.velocity.x += (jImp / mB) * nx;
@@ -472,30 +478,33 @@ export class Multiplayer {
           this.game.audio?.bonk(Math.min(1.5, velAlong / 5));
         }
 
-        const impact = Math.abs(velAlong);
-        // Scatter sticky junk from both balls (host only; synced via events)
-        if (velAlong > 1.4 && impact > 1.4) {
-          this._scatterPair(list[i], list[j], nx, nz, impact);
+        const dvA = computeDeltaV(jImp, mA);
+        const dvB = computeDeltaV(jImp, mB);
+        const scatterMin = this.game.tuning.scatterImpulseMin ?? 1.4;
+        if (jImp > scatterMin) {
+          this._scatterPair(list[i], list[j], nx, nz, dvA, dvB);
         }
 
-        // Steal: larger ball takes volume when impact is solid
-        if (impact > 2.2) {
-          const bigger = a.radius >= b.radius ? list[i] : list[j];
-          const smaller = bigger === list[i] ? list[j] : list[i];
-          const ratio = bigger.ball.radius / Math.max(0.01, smaller.ball.radius);
-          if (ratio >= 0.92) {
-            const stealV = Math.min(
-              smaller.ball.volume * 0.08,
-              bigger.ball.volume * 0.05,
-              0.35,
-            );
-            if (stealV > 0.02) {
-              const before = smaller.ball.diameterCm;
-              smaller.ball.removeVolume(stealV);
-              bigger.ball.addVolume(stealV);
-              const cm = Math.max(1, before - smaller.ball.diameterCm);
-              this.onBumpSteal(bigger.name, smaller.name, cm);
-            }
+        const stealMin = this.game.tuning.stealDeltaVMin ?? 1.8;
+        const lighterPlayer = mA <= mB ? list[i] : list[j];
+        const heavierPlayer = lighterPlayer === list[i] ? list[j] : list[i];
+        const dvLight = Math.min(dvA, dvB);
+        if (
+          dvLight > stealMin
+          && heavierPlayer.ball.radius > lighterPlayer.ball.radius * 1.05
+        ) {
+          const stealV = computeStealVolume(
+            lighterPlayer.ball.volume,
+            heavierPlayer.ball.volume,
+            dvLight,
+            this.game.tuning,
+          );
+          if (stealV > 0.02) {
+            const before = lighterPlayer.ball.diameterCm;
+            lighterPlayer.ball.removeVolume(stealV);
+            heavierPlayer.ball.addVolume(stealV);
+            const cm = Math.max(1, before - lighterPlayer.ball.diameterCm);
+            this.onBumpSteal(heavierPlayer.name, lighterPlayer.name, cm);
           }
         }
       }
@@ -506,15 +515,15 @@ export class Multiplayer {
    * @param {{ id: string, name: string, ball: import('./Katamari.js').Katamari }} pa
    * @param {{ id: string, name: string, ball: import('./Katamari.js').Katamari }} pb
    */
-  _scatterPair(pa, pb, nx, nz, impact) {
+  _scatterPair(pa, pb, nx, nz, dvA, dvB) {
     const key = [pa.id, pb.id].sort().join(':');
     const now = performance.now();
     const last = this._scatterCooldown.get(key) ?? 0;
     if (now - last < 450) return;
     this._scatterCooldown.set(key, now);
 
-    const piecesA = pa.ball.scatterOnImpact(impact, -nx, -nz);
-    const piecesB = pb.ball.scatterOnImpact(impact, nx, nz);
+    const piecesA = pa.ball.scatterOnImpact(dvA, -nx, -nz);
+    const piecesB = pb.ball.scatterOnImpact(dvB, nx, nz);
     const all = [];
     for (const piece of piecesA) {
       this.game.collectibles.addScattered(piece);
@@ -543,6 +552,7 @@ export class Multiplayer {
     if (all.length > 0) {
       this._events.push({ kind: 'scatter', pieces: all });
       this.game.ui.flashMpEvent?.('Sticky junk scattered!');
+      const impact = Math.max(dvA, dvB);
       this.game.audio?.bonk(Math.min(1.6, impact / 4));
     }
   }
