@@ -19,7 +19,19 @@ function randomCode(len = 5) {
  * @param {string} [path='/mp']
  */
 export function attachMpRelay(httpServer, path = '/mp') {
-  const wss = new WebSocketServer({ server: httpServer, path });
+  // Discord's activity proxy strips the mapping prefix, so a client hitting
+  // /.proxy/mp arrives here with path '/'. Accept both '/' and the direct path.
+  const wss = new WebSocketServer({ noServer: true });
+  httpServer.on('upgrade', (req, socket, head) => {
+    const reqPath = (req.url || '').split('?')[0];
+    if (reqPath === path || reqPath === '/') {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit('connection', ws, req);
+      });
+    } else {
+      socket.destroy();
+    }
+  });
   /** @type {Map<string, { code: string, hostId: string, clients: Map<string, import('ws').WebSocket>, created: number }>} */
   const roomsByCode = new Map();
   /** @type {WeakMap<import('ws').WebSocket, { id: string, roomCode: string | null, isHost: boolean }>} */
