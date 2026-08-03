@@ -10,6 +10,8 @@ export class World {
     this.root = new THREE.Group();
     this.lights = new THREE.Group();
     this.floor = null;
+    /** @type {{ x: number, z: number, r: number }[]} static XZ blockers for set dressing */
+    this.obstacles = [];
   }
 
   init() {
@@ -20,6 +22,7 @@ export class World {
 
   buildStage(stage) {
     this._clearRoot();
+    this.obstacles = [];
 
     const scene = this.game.scene;
     const size = stage.floorSize;
@@ -31,6 +34,53 @@ export class World {
     this._createFloor(size, theme);
     this._createRim(size, theme);
     this._createSetDressing(size, stage.theme);
+  }
+
+  /** Circle collider for non-collectible set dressing (rocks, posts, booths…). */
+  _addObstacle(x, z, r) {
+    if (r > 0.05) this.obstacles.push({ x, z, r });
+  }
+
+  /**
+   * Push ball out of static obstacles and bounce velocity along the contact normal.
+   * @param {import('./Katamari.js').Katamari} ball
+   */
+  collideBall(ball) {
+    if (!ball || this.obstacles.length === 0) return;
+    const br = ball.radius;
+    const bounce = this.game.tuning.wallBounce ?? 0.4;
+
+    for (const o of this.obstacles) {
+      const reach = br + o.r;
+      let dx = ball.position.x - o.x;
+      let dz = ball.position.z - o.z;
+      let distSq = dx * dx + dz * dz;
+      if (distSq >= reach * reach) continue;
+
+      let dist = Math.sqrt(distSq);
+      let nx;
+      let nz;
+      if (dist < 1e-5) {
+        nx = 1;
+        nz = 0;
+        dist = 0;
+      } else {
+        nx = dx / dist;
+        nz = dz / dist;
+      }
+
+      const overlap = reach - dist + 0.002;
+      ball.position.x += nx * overlap;
+      ball.position.z += nz * overlap;
+      ball.group.position.x = ball.position.x;
+      ball.group.position.z = ball.position.z;
+
+      const velAlong = ball.velocity.x * nx + ball.velocity.z * nz;
+      if (velAlong < 0) {
+        ball.velocity.x -= (1 + bounce) * velAlong * nx;
+        ball.velocity.z -= (1 + bounce) * velAlong * nz;
+      }
+    }
   }
 
   _setupLights() {
@@ -166,14 +216,18 @@ export class World {
   _scatterTideRocks(size) {
     const mat = new THREE.MeshStandardMaterial({ color: 0x718096, roughness: 0.9 });
     for (let i = 0; i < 22; i++) {
-      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.5 + (i % 4) * 0.18), mat.clone());
+      const rockR = 0.5 + (i % 4) * 0.18;
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(rockR), mat.clone());
       const a = i * 2.399;
       const r = size * (0.28 + (i % 6) * 0.035);
-      rock.position.set(Math.cos(a) * r, 0.25, Math.sin(a) * r);
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      rock.position.set(x, 0.25, z);
       rock.scale.y = 0.45 + (i % 3) * 0.18;
       rock.castShadow = true;
       rock.receiveShadow = true;
       this.root.add(rock);
+      this._addObstacle(x, z, rockR * 0.85);
     }
   }
 
@@ -196,9 +250,12 @@ export class World {
       }
       const a = i * 2.17;
       const r = size * (0.22 + (i % 10) * 0.028);
-      group.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      group.position.set(x, 0, z);
       group.rotation.y = a;
       this.root.add(group);
+      this._addObstacle(x, z, 0.22 + branches * 0.08);
     }
   }
 
@@ -214,9 +271,12 @@ export class World {
     }
     for (let i = -4; i <= 4; i += 2) {
       const post = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.28, 2.2, 10), wood.clone());
-      post.position.set(i * 1.4, 1.1, -size * 0.32);
+      const px = i * 1.4;
+      const pz = -size * 0.32;
+      post.position.set(px, 1.1, pz);
       post.castShadow = true;
       this.root.add(post);
+      this._addObstacle(px, pz, 0.32);
     }
     for (let i = 0; i < 18; i++) {
       const coil = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.06, 8, 24), rope.clone());
@@ -242,8 +302,11 @@ export class World {
       umb.add(stick, shade);
       const a = i * 2.45;
       const r = size * (0.24 + (i % 5) * 0.04);
-      umb.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+      const x = Math.cos(a) * r;
+      const z = Math.sin(a) * r;
+      umb.position.set(x, 0, z);
       this.root.add(umb);
+      this._addObstacle(x, z, 0.22);
     }
     for (let i = 0; i < 20; i++) {
       const towel = new THREE.Mesh(
@@ -274,9 +337,12 @@ export class World {
         new THREE.MeshStandardMaterial({ color: neon[i % neon.length], roughness: 0.55 }),
       );
       const side = i % 2 === 0 ? -1 : 1;
-      booth.position.set(side * size * 0.22, 1.2, -size * 0.18 + Math.floor(i / 2) * 3.2);
+      const bx = side * size * 0.22;
+      const bz = -size * 0.18 + Math.floor(i / 2) * 3.2;
+      booth.position.set(bx, 1.2, bz);
       booth.castShadow = true;
       this.root.add(booth);
+      this._addObstacle(bx, bz, 1.35);
     }
     for (let i = 0; i < 10; i++) {
       const light = new THREE.Mesh(

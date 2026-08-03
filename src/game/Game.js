@@ -866,6 +866,7 @@ export class Game {
       if (!this._orientationBlocked && !this._controllerBlocked) {
         const wish = this.input.resolveWorldWish(this.camera, this.ball, this.followCam);
         this.ball.update(dt, wish);
+        this.world?.collideBall(this.ball);
         this.collectibles.update(dt, this.ball);
         this.followCam.update(dt, this.ball, wish);
 

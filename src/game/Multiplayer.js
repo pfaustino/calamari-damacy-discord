@@ -369,6 +369,7 @@ export class Multiplayer {
       // Predict local ball + scoops/bounces; melt remotes
       if (local?.ball) {
         local.ball.update(dt, localWish);
+        this.game.world?.collideBall(local.ball);
         this.game.collectibles.predictGuest(dt, local.ball, this._predictedScoopIds);
       }
       for (const p of this.players) {
@@ -388,6 +389,7 @@ export class Multiplayer {
     for (const p of this.players) {
       if (!p.ball) continue;
       p.ball.update(dt, p.wish);
+      this.game.world?.collideBall(p.ball);
     }
 
     this.game.collectibles.update(dt, balls, {
