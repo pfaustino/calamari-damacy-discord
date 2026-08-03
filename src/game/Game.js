@@ -180,10 +180,8 @@ export class Game {
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, embedded ? 1.25 : 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = !embedded;
-    if (!embedded) {
-      this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    }
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.setClearColor(0x7eb8d4, 1);
   }
 
