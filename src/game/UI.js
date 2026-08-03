@@ -456,6 +456,8 @@ export class UI {
     stageName,
     kingLine,
     progress = { leaderboardName: '' },
+    nextStageName = null,
+    scoreSubmit = null,
     onSaveAndSubmit = null,
   }) {
     this.hideAllOverlays();
@@ -466,7 +468,9 @@ export class UI {
         mode === 'collect'
           ? `${kingLine} You scooped ${collectCount} ${collectType}s in ${stageName}.`
           : `${kingLine} You rolled a ${sizeCm} cm calamari in ${stageName}.`;
-      this.resultPrimary.textContent = 'Present to the King';
+      this.resultPrimary.textContent = nextStageName
+        ? `Present to the King → ${nextStageName}`
+        : 'Present to the King';
     } else {
       this.resultTitle.textContent = mode === 'collect' ? 'Not enough…' : 'Too small…';
       this.resultMessage.textContent =
@@ -482,15 +486,16 @@ export class UI {
         ? `${collectCount}/${collectGoal} ${collectType}s · ${sizeCm} cm · ${count} objects`
         : `${sizeCm} cm · ${count} objects · goal ${goalCm} cm`;
 
-    this._bindResultScoreSave(progress, onSaveAndSubmit);
+    this._bindResultScoreSave(progress, onSaveAndSubmit, scoreSubmit);
   }
 
   /**
    * Prompt for a global name on every stage end and submit size when ready.
    * @param {{ leaderboardName?: string }} progress
    * @param {(name: string) => { ok: boolean, player?: string, reason?: string, error?: string } | null} onSaveAndSubmit
+   * @param {{ ok?: boolean, player?: string, reason?: string, error?: string } | null} [initialSubmit]
    */
-  _bindResultScoreSave(progress, onSaveAndSubmit) {
+  _bindResultScoreSave(progress, onSaveAndSubmit, initialSubmit = null) {
     const nameInput = /** @type {HTMLInputElement | null} */ (document.getElementById('result-name'));
     const status = document.getElementById('result-score-status');
     const saveBtn = document.getElementById('btn-result-save-score');
@@ -532,19 +537,25 @@ export class UI {
     };
 
     if (progress.leaderboardName?.trim()) {
-      applyStatus(onSaveAndSubmit(progress.leaderboardName));
+      applyStatus(initialSubmit ?? onSaveAndSubmit(progress.leaderboardName));
     } else {
       status.textContent = 'Enter a name to save your score.';
       nameInput.focus();
     }
   }
 
-  showPresent({ starName, kingPraise, sizeCm, count }) {
+  showPresent({ starName, kingPraise, sizeCm, count, nextStageName = null }) {
     this.hideAllOverlays();
     this.present.classList.remove('hidden');
     this.presentStarName.textContent = starName;
     this.presentMessage.textContent = kingPraise;
     this.presentStats.textContent = `${sizeCm} cm · ${count} objects → a star`;
+    const continueBtn = document.getElementById('btn-view-cosmos');
+    if (continueBtn) {
+      continueBtn.textContent = nextStageName
+        ? `Next mission: ${nextStageName}`
+        : 'View the Cosmos';
+    }
     this.risingStar.classList.remove('rise');
     void this.risingStar.offsetWidth;
     this.risingStar.classList.add('rise');

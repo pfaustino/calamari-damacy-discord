@@ -131,14 +131,20 @@ export class Game {
 
   /** Create WebGL + scene graph on first play (keeps title/menus HTML-only in Discord). */
   ensurePlayStack() {
-    if (this.renderer) return;
-
-    this.setupRenderer();
-    this.setupScene();
-    this.world = new World(this);
-    this.collectibles = new Collectibles(this);
-    this.followCam = new FollowCamera(this);
-    this.followCam.init();
+    if (!this.renderer) {
+      this.setupRenderer();
+      this.setupScene();
+    }
+    if (!this.world) {
+      this.world = new World(this);
+    }
+    if (!this.collectibles) {
+      this.collectibles = new Collectibles(this);
+    }
+    if (!this.followCam) {
+      this.followCam = new FollowCamera(this);
+      this.followCam.init();
+    }
     this.setCanvasVisible(true);
     this.onResize();
   }
@@ -178,6 +184,7 @@ export class Game {
     if (!embedded) {
       this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     }
+    this.renderer.setClearColor(0x7eb8d4, 1);
   }
 
   setupScene() {
@@ -210,12 +217,33 @@ export class Game {
     return 'Acceptable! Into the sky with it.';
   }
 
+  /** First unlocked stage not yet cleared (campaign order). */
+  getNextPlayableStage() {
+    return this.stages.find(
+      (s) => isStageUnlocked(this.stages, this.progress, s.id)
+        && !this.progress.completed.includes(s.id),
+    ) ?? null;
+  }
+
+  /** Stage immediately after the current one in the campaign list. */
+  getNextCampaignStage() {
+    const idx = this.stages.findIndex((s) => s.id === this.stage?.id);
+    if (idx < 0) return null;
+    return this.stages[idx + 1] ?? null;
+  }
+
+  /** @param {object} runPayload */
+  _submitWinScore(runPayload) {
+    if (this.progress.leaderboardName?.trim()) {
+      return trySubmitGlobalClear(this.progress, runPayload);
+    }
+    return { ok: false, reason: 'no_name' };
+  }
+
   bindUi() {
     document.getElementById('btn-play').addEventListener('click', () => {
       this.audio.unlockAndPlay();
-      const next = this.stages.find((s) => isStageUnlocked(this.stages, this.progress, s.id)
-        && !this.progress.completed.includes(s.id))
-        ?? this.stages[0];
+      const next = this.getNextPlayableStage() ?? this.stages[0];
       this.beginStage(next.id);
     });
     document.getElementById('btn-title-cosmos').addEventListener('click', () => {
@@ -298,7 +326,9 @@ export class Game {
       }
     });
     document.getElementById('btn-title').addEventListener('click', () => this.toTitle());
-    document.getElementById('btn-view-cosmos').addEventListener('click', () => this.showCosmos());
+    document.getElementById('btn-view-cosmos').addEventListener('click', () => {
+      this.continueAfterPresent();
+    });
     document.getElementById('btn-cosmos-title').addEventListener('click', () => this.toTitle());
 
     document.getElementById('btn-tilt-enable').addEventListener('click', async () => {
@@ -418,12 +448,18 @@ export class Game {
 
   startStage(stageId = this.stage?.id) {
     const stage = this.stages.find((s) => s.id === stageId) ?? this.stages[0];
-    if (!isStageUnlocked(this.stages, this.progress, stage.id)) return;
+    if (!isStageUnlocked(this.stages, this.progress, stage.id)) {
+      console.warn(`Stage locked: ${stage.id}`);
+      return;
+    }
 
     this.ensurePlayStack();
-    this.stage = stage;
     this.ensureWorld();
+    this.stage = stage;
     this.world.buildStage(this.stage);
+    if (this.renderer && this.scene?.background?.isColor) {
+      this.renderer.setClearColor(this.scene.background, 1);
+    }
 
     this.clearBalls();
     this.collectibles.clear();
@@ -712,7 +748,6 @@ export class Game {
       collectCount: this.collectCount ?? 0,
       timeLeft: this.timeLeft,
     };
-    this.state = 'result';
     const timeLimit = this.stage.timeLimit ?? 0;
     const timeSec = Math.max(0, timeLimit - Math.max(0, this.timeLeft));
     const runPayload = {
@@ -725,6 +760,20 @@ export class Game {
       multiplayer: false,
       timeSec,
     };
+
+    let scoreSubmit = null;
+    if (won) {
+      this.progress = recordClear(
+        this.progress,
+        this.stage,
+        this._lastResult.sizeCm,
+        this._lastResult.count,
+      );
+      scoreSubmit = this._submitWinScore(runPayload);
+    }
+
+    this.state = 'result';
+    const nextStage = won ? this.getNextCampaignStage() : null;
     this.ui.showResult({
       won,
       sizeCm,
@@ -738,6 +787,8 @@ export class Game {
       stageName: this.stage.name,
       kingLine: this.pickKingLine(won ? 'kingPraise' : 'kingFailure'),
       progress: this.progress,
+      nextStageName: nextStage?.name ?? null,
+      scoreSubmit,
       onSaveAndSubmit: (name) => {
         const next = setLeaderboardName(this.progress, name);
         if (!next) return { ok: false, error: 'Enter a name (max 24 chars).' };
@@ -757,13 +808,26 @@ export class Game {
       this._lastResult.count,
     );
     this.state = 'present';
+    const nextStage = this.getNextCampaignStage();
     this.ui.showPresent({
       starName: this.stage.starName,
       kingPraise: this.pickKingLine('kingPraise'),
       sizeCm: this._lastResult.sizeCm,
       count: this._lastResult.count,
+      nextStageName: nextStage?.name ?? null,
     });
     this.audio.duck(0.5);
+  }
+
+  /** After the king hangs a star, roll the next mission or open the cosmos map. */
+  continueAfterPresent() {
+    const next = this.getNextPlayableStage();
+    if (next) {
+      this.audio.unlockAndPlay();
+      this.beginStage(next.id);
+      return;
+    }
+    this.showCosmos();
   }
 
   devGrow(cm) {
